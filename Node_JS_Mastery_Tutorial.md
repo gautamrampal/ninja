@@ -2535,9 +2535,2420 @@ Happy coding! 🚀
 
 ---
 
-**End of Node.js Mastery Tutorial - Basic to Intermediate**
+## Phase 4: Express.js Framework
 
-*Version: 1.0*  
+### Module 4.1: Express Basics
+
+#### Setting Up Express
+
+**Description:** Express.js is a minimal and flexible Node.js web application framework that provides robust features for web and mobile applications.
+
+**Installation:**
+```bash
+npm init -y
+npm install express
+```
+
+**Basic Server:**
+
+```javascript
+// server.js
+const express = require('express');
+const app = express();
+const PORT = 3000;
+
+// Basic route - responds to GET request on root path
+app.get('/', (req, res) => {
+    res.send('Hello, Express!');
+});
+
+// Start server and listen on port 3000
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+**Run:**
+```bash
+node server.js
+# Visit http://localhost:3000 in browser
+```
+
+#### Routes and HTTP Methods
+
+```javascript
+const express = require('express');
+const app = express();
+
+// Middleware to parse JSON bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// GET request - Retrieve data
+app.get('/users', (req, res) => {
+    res.json([
+        { id: 1, name: 'John' },
+        { id: 2, name: 'Jane' }
+    ]);
+});
+
+// GET with route parameters
+app.get('/users/:id', (req, res) => {
+    const userId = req.params.id;  // Extract parameter from URL
+    res.json({ id: userId, name: 'John Doe' });
+});
+
+// Query parameters: /search?q=nodejs&page=1
+app.get('/search', (req, res) => {
+    const { q, page, limit } = req.query;
+    res.json({
+        query: q,
+        page: page || 1,
+        limit: limit || 10
+    });
+});
+
+// POST request - Create new resource
+app.post('/users', (req, res) => {
+    const newUser = req.body;  // Data from request body
+    // In real app: save to database
+    res.status(201).json({
+        message: 'User created',
+        user: newUser
+    });
+});
+
+// PUT request - Update entire resource
+app.put('/users/:id', (req, res) => {
+    const userId = req.params.id;
+    const updates = req.body;
+    
+    res.json({
+        message: 'User updated',
+        id: userId,
+        updates
+    });
+});
+
+// PATCH request - Partial update
+app.patch('/users/:id', (req, res) => {
+    const userId = req.params.id;
+    const updates = req.body;
+    
+    res.json({
+        message: 'User partially updated',
+        id: userId,
+        updates
+    });
+});
+
+// DELETE request - Remove resource
+app.delete('/users/:id', (req, res) => {
+    const userId = req.params.id;
+    // In real app: delete from database
+    res.json({
+        message: 'User deleted',
+        id: userId
+    });
+});
+
+app.listen(3000);
+```
+
+### Module 4.2: Middleware
+
+#### Understanding Middleware
+
+**Description:** Middleware functions have access to request (req), response (res), and next function. They execute in sequence and can modify request/response or end the cycle.
+
+```javascript
+const express = require('express');
+const app = express();
+
+// Application-level middleware - runs for ALL requests
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url} - ${new Date().toISOString()}`);
+    next();  // Pass control to next middleware
+});
+
+// Route-specific middleware
+const checkAuth = (req, res, next) => {
+    const token = req.headers.authorization;
+    
+    if (token === 'Bearer secret-token') {
+        next();  // Authorized, proceed
+    } else {
+        res.status(401).json({ error: 'Unauthorized' });
+    }
+};
+
+// Apply middleware to specific route
+app.get('/protected', checkAuth, (req, res) => {
+    res.json({ message: 'You are authenticated!' });
+});
+
+// Multiple middleware functions
+const logger = (req, res, next) => {
+    console.log('Logger middleware');
+    next();
+};
+
+const validator = (req, res, next) => {
+    console.log('Validator middleware');
+    next();
+};
+
+app.get('/multi', [logger, validator], (req, res) => {
+    res.send('Response after multiple middleware');
+});
+
+// Error-handling middleware (must have 4 parameters)
+app.use((err, req, res, next) => {
+    console.error('Error:', err.message);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message
+    });
+});
+
+app.listen(3000);
+```
+
+#### Built-in and Third-party Middleware
+
+```bash
+npm install morgan cors helmet compression cookie-parser
+```
+
+```javascript
+const express = require('express');
+const morgan = require('morgan');         // Logging
+const cors = require('cors');             // Cross-Origin Resource Sharing
+const helmet = require('helmet');         // Security headers
+const compression = require('compression'); // Gzip compression
+const cookieParser = require('cookie-parser');
+
+const app = express();
+
+// Built-in middleware
+app.use(express.json());  // Parse JSON bodies
+app.use(express.urlencoded({ extended: true }));  // Parse URL-encoded bodies
+app.use(express.static('public'));  // Serve static files from 'public' folder
+
+// Third-party middleware
+app.use(morgan('dev'));  // Log HTTP requests
+app.use(helmet());       // Set security headers
+app.use(cors());         // Enable CORS
+app.use(compression());  // Compress responses
+app.use(cookieParser()); // Parse cookies
+
+// Cookie operations
+app.get('/set-cookie', (req, res) => {
+    res.cookie('username', 'john', { maxAge: 900000, httpOnly: true });
+    res.send('Cookie set');
+});
+
+app.get('/get-cookie', (req, res) => {
+    res.json({ cookies: req.cookies });
+});
+
+app.listen(3000);
+```
+
+### Module 4.3: Express Router
+
+**routes/users.js**
+```javascript
+const express = require('express');
+const router = express.Router();
+
+// Router-level middleware
+router.use((req, res, next) => {
+    console.log('Users route accessed');
+    next();
+});
+
+// GET /api/users
+router.get('/', (req, res) => {
+    res.json([
+        { id: 1, name: 'John' },
+        { id: 2, name: 'Jane' }
+    ]);
+});
+
+// GET /api/users/:id
+router.get('/:id', (req, res) => {
+    res.json({ id: req.params.id, name: 'John Doe' });
+});
+
+// POST /api/users
+router.post('/', (req, res) => {
+    res.status(201).json({ message: 'User created', user: req.body });
+});
+
+// PUT /api/users/:id
+router.put('/:id', (req, res) => {
+    res.json({ message: 'User updated', id: req.params.id });
+});
+
+// DELETE /api/users/:id
+router.delete('/:id', (req, res) => {
+    res.json({ message: 'User deleted', id: req.params.id });
+});
+
+module.exports = router;
+```
+
+**server.js**
+```javascript
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+
+// Import routers
+const usersRouter = require('./routes/users');
+const productsRouter = require('./routes/products');
+
+// Mount routers
+app.use('/api/users', usersRouter);
+app.use('/api/products', productsRouter);
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+});
+
+app.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
+```
+
+---
+
+## Phase 5: Database Integration
+
+### Module 5.1: MongoDB with Mongoose
+
+#### Setting Up Mongoose
+
+**Installation:**
+```bash
+npm install mongoose
+```
+
+**Connection:**
+
+```javascript
+// config/database.js
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect('mongodb://localhost:27017/myapp', {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+        console.log('MongoDB connected successfully');
+    } catch (error) {
+        console.error('MongoDB connection error:', error);
+        process.exit(1);
+    }
+};
+
+module.exports = connectDB;
+```
+
+#### Mongoose Schema and Model
+
+```javascript
+// models/User.js
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: [true, 'Name is required'],
+        trim: true,
+        minlength: [3, 'Name must be at least 3 characters'],
+        maxlength: [50, 'Name cannot exceed 50 characters']
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        match: [/^\S+@\S+\.\S+$/, 'Please enter valid email']
+    },
+    password: {
+        type: String,
+        required: true,
+        minlength: 6
+    },
+    age: {
+        type: Number,
+        min: [18, 'Must be at least 18'],
+        max: [100, 'Age cannot exceed 100']
+    },
+    role: {
+        type: String,
+        enum: ['user', 'admin', 'moderator'],
+        default: 'user'
+    },
+    isActive: {
+        type: Boolean,
+        default: true
+    }
+}, {
+    timestamps: true  // Adds createdAt and updatedAt
+});
+
+// Instance method
+userSchema.methods.getPublicProfile = function() {
+    return {
+        id: this._id,
+        name: this.name,
+        email: this.email
+    };
+};
+
+// Static method
+userSchema.statics.findByEmail = function(email) {
+    return this.findOne({ email: email.toLowerCase() });
+};
+
+// Pre-save middleware
+userSchema.pre('save', async function(next) {
+    if (this.isModified('password')) {
+        const bcrypt = require('bcrypt');
+        this.password = await bcrypt.hash(this.password, 10);
+    }
+    next();
+});
+
+const User = mongoose.model('User', userSchema);
+module.exports = User;
+```
+
+#### CRUD Operations
+
+```javascript
+const User = require('./models/User');
+
+// CREATE
+async function createUser() {
+    try {
+        // Method 1: Using save()
+        const user = new User({
+            name: 'John Doe',
+            email: 'john@example.com',
+            password: 'password123',
+            age: 30
+        });
+        await user.save();
+        
+        // Method 2: Using create()
+        const user2 = await User.create({
+            name: 'Jane Smith',
+            email: 'jane@example.com',
+            password: 'password456',
+            age: 25
+        });
+        
+        console.log('Users created');
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+}
+
+// READ
+async function readUsers() {
+    try {
+        // Find all
+        const allUsers = await User.find();
+        
+        // Find with conditions
+        const activeUsers = await User.find({ isActive: true });
+        
+        // Find one
+        const user = await User.findOne({ email: 'john@example.com' });
+        
+        // Find by ID
+        const userById = await User.findById('60f7b3b3b3b3b3b3b3b3b3b3');
+        
+        // With options
+        const users = await User.find({ age: { $gte: 25 } })
+            .select('name email age')  // Select specific fields
+            .limit(10)
+            .skip(0)
+            .sort({ name: 1 })  // Sort ascending
+            .exec();
+        
+        // Count
+        const count = await User.countDocuments({ isActive: true });
+        
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+}
+
+// UPDATE
+async function updateUsers() {
+    try {
+        // Update one
+        await User.updateOne(
+            { email: 'john@example.com' },
+            { age: 31 }
+        );
+        
+        // Find and update (returns updated document)
+        const user = await User.findOneAndUpdate(
+            { email: 'john@example.com' },
+            { age: 32 },
+            { new: true, runValidators: true }
+        );
+        
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+}
+
+// DELETE
+async function deleteUsers() {
+    try {
+        // Delete one
+        await User.deleteOne({ email: 'john@example.com' });
+        
+        // Find and delete
+        const deletedUser = await User.findOneAndDelete(
+            { email: 'john@example.com' }
+        );
+        
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+}
+```
+
+### Module 5.2: RESTful API with Express and MongoDB
+
+```javascript
+// controllers/userController.js
+const User = require('../models/User');
+
+// Get all users
+exports.getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find().select('-password');
+        res.json({
+            success: true,
+            count: users.length,
+            data: users
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// Get single user
+exports.getUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// Create user
+exports.createUser = async (req, res) => {
+    try {
+        const user = await User.create(req.body);
+        
+        res.status(201).json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// Update user
+exports.updateUser = async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// Delete user
+exports.deleteUser = async (req, res) => {
+    try {
+        const user = await User.findByIdAndDelete(req.params.id);
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: {}
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+```
+
+**Routes:**
+```javascript
+// routes/users.js
+const express = require('express');
+const router = express.Router();
+const {
+    getAllUsers,
+    getUser,
+    createUser,
+    updateUser,
+    deleteUser
+} = require('../controllers/userController');
+
+router.route('/')
+    .get(getAllUsers)
+    .post(createUser);
+
+router.route('/:id')
+    .get(getUser)
+    .put(updateUser)
+    .delete(deleteUser);
+
+module.exports = router;
+```
+
+---
+
+## Phase 6: Authentication & Security
+
+### Module 6.1: JWT Authentication
+
+**Installation:**
+```bash
+npm install jsonwebtoken bcrypt dotenv
+```
+
+**User Registration:**
+
+```javascript
+// controllers/authController.js
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+
+// Register new user
+exports.register = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        
+        // Check if user exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                error: 'User already exists'
+            });
+        }
+        
+        // Create user (password will be hashed by pre-save hook)
+        const user = await User.create({
+            name,
+            email,
+            password
+        });
+        
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: user._id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        res.status(201).json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// Login user
+exports.login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Please provide email and password'
+            });
+        }
+        
+        // Find user
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials'
+            });
+        }
+        
+        // Check password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials'
+            });
+        }
+        
+        // Generate token
+        const token = jwt.sign(
+            { id: user._id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+```
+
+**Authentication Middleware:**
+
+```javascript
+// middleware/auth.js
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+exports.protect = async (req, res, next) => {
+    try {
+        let token;
+        
+        // Get token from header
+        if (req.headers.authorization &&
+            req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+        
+        // Check if token exists
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                error: 'Not authorized to access this route'
+            });
+        }
+        
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Find user
+        req.user = await User.findById(decoded.id).select('-password');
+        
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        next();
+    } catch (error) {
+        res.status(401).json({
+            success: false,
+            error: 'Not authorized'
+        });
+    }
+};
+
+// Role-based authorization
+exports.authorize = (...roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                error: `User role ${req.user.role} is not authorized`
+            });
+        }
+        next();
+    };
+};
+```
+
+**Protected Routes:**
+
+```javascript
+// routes/users.js
+const express = require('express');
+const router = express.Router();
+const { protect, authorize } = require('../middleware/auth');
+const {
+    getAllUsers,
+    getUser,
+    updateUser,
+    deleteUser
+} = require('../controllers/userController');
+
+// Public routes
+// ...
+
+// Protected routes (require authentication)
+router.use(protect);  // All routes below require authentication
+
+router.get('/profile', (req, res) => {
+    res.json({
+        success: true,
+        data: req.user
+    });
+});
+
+// Admin-only routes
+router.get('/admin/users', authorize('admin'), getAllUsers);
+router.delete('/admin/users/:id', authorize('admin'), deleteUser);
+
+module.exports = router;
+```
+
+### Module 6.2: Security Best Practices
+
+```javascript
+// Security packages
+const helmet = require('helmet');         // Security headers
+const mongoSanitize = require('express-mongo-sanitize');  // Prevent NoSQL injection
+const xss = require('xss-clean');        // Prevent XSS attacks
+const rateLimit = require('express-rate-limit');  // Rate limiting
+const hpp = require('hpp');              // Prevent parameter pollution
+
+const app = express();
+
+// Set security headers
+app.use(helmet());
+
+// Prevent NoSQL injection
+app.use(mongoSanitize());
+
+// Prevent XSS attacks
+app.use(xss());
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 10 * 60 * 1000,  // 10 minutes
+    max: 100  // Limit each IP to 100 requests per windowMs
+});
+app.use('/api', limiter);
+
+// Prevent parameter pollution
+app.use(hpp());
+
+// CORS configuration
+const cors = require('cors');
+app.use(cors({
+    origin: 'https://yourdomain.com',
+    credentials: true,
+    optionsSuccessStatus: 200
+}));
+```
+
+---
+
+## Phase 7: Testing & Debugging
+
+### Module 7.1: Unit Testing with Jest
+
+**Installation:**
+```bash
+npm install --save-dev jest supertest
+```
+
+**package.json:**
+```json
+{
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": ["/node_modules/"]
+  }
+}
+```
+
+**Unit Tests:**
+
+```javascript
+// __tests__/utils.test.js
+const { add, subtract, multiply, divide } = require('../utils/math');
+
+describe('Math Utilities', () => {
+    // Test add function
+    test('add() should add two numbers', () => {
+        expect(add(2, 3)).toBe(5);
+        expect(add(-1, 1)).toBe(0);
+        expect(add(0, 0)).toBe(0);
+    });
+    
+    // Test subtract function
+    test('subtract() should subtract two numbers', () => {
+        expect(subtract(5, 3)).toBe(2);
+        expect(subtract(0, 5)).toBe(-5);
+    });
+    
+    // Test multiply function
+    test('multiply() should multiply two numbers', () => {
+        expect(multiply(3, 4)).toBe(12);
+        expect(multiply(-2, 3)).toBe(-6);
+    });
+    
+    // Test divide function
+    test('divide() should divide two numbers', () => {
+        expect(divide(10, 2)).toBe(5);
+        expect(divide(7, 2)).toBe(3.5);
+    });
+    
+    test('divide() should throw error for division by zero', () => {
+        expect(() => divide(5, 0)).toThrow('Cannot divide by zero');
+    });
+});
+
+// Async tests
+describe('Async Functions', () => {
+    test('fetchUser() should return user data', async () => {
+        const user = await fetchUser(1);
+        expect(user).toHaveProperty('id', 1);
+        expect(user).toHaveProperty('name');
+    });
+});
+```
+
+### Module 7.2: API Testing with Supertest
+
+```javascript
+// __tests__/api/users.test.js
+const request = require('supertest');
+const app = require('../app');
+const User = require('../models/User');
+const mongoose = require('mongoose');
+
+// Setup and teardown
+beforeAll(async () => {
+    await mongoose.connect(process.env.TEST_DATABASE_URL);
+});
+
+afterAll(async () => {
+    await mongoose.connection.close();
+});
+
+beforeEach(async () => {
+    await User.deleteMany({});  // Clear database before each test
+});
+
+describe('User API', () => {
+    // Test GET /api/users
+    test('GET /api/users should return all users', async () => {
+        // Create test users
+        await User.create([
+            { name: 'John', email: 'john@test.com', password: 'pass123' },
+            { name: 'Jane', email: 'jane@test.com', password: 'pass456' }
+        ]);
+        
+        const response = await request(app)
+            .get('/api/users')
+            .expect('Content-Type', /json/)
+            .expect(200);
+        
+        expect(response.body.success).toBe(true);
+        expect(response.body.data).toHaveLength(2);
+    });
+    
+    // Test POST /api/users
+    test('POST /api/users should create new user', async () => {
+        const newUser = {
+            name: 'Test User',
+            email: 'test@example.com',
+            password: 'password123'
+        };
+        
+        const response = await request(app)
+            .post('/api/users')
+            .send(newUser)
+            .expect('Content-Type', /json/)
+            .expect(201);
+        
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.name).toBe(newUser.name);
+        expect(response.body.data.email).toBe(newUser.email);
+    });
+    
+    // Test GET /api/users/:id
+    test('GET /api/users/:id should return single user', async () => {
+        const user = await User.create({
+            name: 'John',
+            email: 'john@test.com',
+            password: 'pass123'
+        });
+        
+        const response = await request(app)
+            .get(`/api/users/${user._id}`)
+            .expect(200);
+        
+        expect(response.body.data.name).toBe('John');
+    });
+    
+    // Test error handling
+    test('GET /api/users/:id should return 404 for invalid ID', async () => {
+        const fakeId = new mongoose.Types.ObjectId();
+        
+        const response = await request(app)
+            .get(`/api/users/${fakeId}`)
+            .expect(404);
+        
+        expect(response.body.success).toBe(false);
+    });
+});
+
+// Test authentication
+describe('Authentication API', () => {
+    test('POST /api/auth/register should create user and return token', async () => {
+        const newUser = {
+            name: 'Test User',
+            email: 'test@example.com',
+            password: 'password123'
+        };
+        
+        const response = await request(app)
+            .post('/api/auth/register')
+            .send(newUser)
+            .expect(201);
+        
+        expect(response.body.success).toBe(true);
+        expect(response.body.token).toBeDefined();
+    });
+    
+    test('POST /api/auth/login should return token for valid credentials', async () => {
+        // Create user first
+        await User.create({
+            name: 'John',
+            email: 'john@test.com',
+            password: 'password123'
+        });
+        
+        const response = await request(app)
+            .post('/api/auth/login')
+            .send({
+                email: 'john@test.com',
+                password: 'password123'
+            })
+            .expect(200);
+        
+        expect(response.body.success).toBe(true);
+        expect(response.body.token).toBeDefined();
+    });
+    
+    test('Protected route should require authentication', async () => {
+        await request(app)
+            .get('/api/users/profile')
+            .expect(401);
+    });
+    
+    test('Protected route should work with valid token', async () => {
+        // Register and get token
+        const registerRes = await request(app)
+            .post('/api/auth/register')
+            .send({
+                name: 'John',
+                email: 'john@test.com',
+                password: 'password123'
+            });
+        
+        const token = registerRes.body.token;
+        
+        // Access protected route
+        const response = await request(app)
+            .get('/api/users/profile')
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200);
+        
+        expect(response.body.success).toBe(true);
+    });
+});
+```
+
+### Module 7.3: Debugging Techniques
+
+**Using Node.js Debugger:**
+
+```javascript
+// app.js
+const express = require('express');
+const app = express();
+
+app.get('/debug', (req, res) => {
+    const data = { name: 'John', age: 30 };
+    
+    debugger;  // Debugger will pause here
+    
+    const result = processData(data);
+    res.json(result);
+});
+
+function processData(data) {
+    debugger;  // Another breakpoint
+    
+    return {
+        ...data,
+        timestamp: new Date()
+    };
+}
+```
+
+**Run with debugger:**
+```bash
+# Node.js built-in debugger
+node inspect app.js
+
+# Chrome DevTools
+node --inspect app.js
+# Open chrome://inspect in Chrome
+
+# VS Code debugging
+# Use F5 or Debug panel
+```
+
+**Debug Configuration (VS Code):**
+```json
+// .vscode/launch.json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Program",
+            "skipFiles": ["<node_internals>/**"],
+            "program": "${workspaceFolder}/server.js",
+            "env": {
+                "NODE_ENV": "development"
+            }
+        }
+    ]
+}
+```
+
+**Logging Best Practices:**
+
+```javascript
+// Using Winston for logging
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+    ),
+    transports: [
+        // Write to file
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'combined.log' })
+    ]
+});
+
+// Add console logging in development
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.simple()
+    }));
+}
+
+// Usage
+logger.info('Server started on port 3000');
+logger.warn('This is a warning');
+logger.error('Error occurred', { error: err.message });
+```
+
+---
+
+## Phase 8: Advanced Topics
+
+### Module 8.1: Streams
+
+**Description:** Streams allow processing data piece by piece without loading entire content into memory. Perfect for large files.
+
+```javascript
+const fs = require('fs');
+const { Transform } = require('stream');
+
+// Readable stream - Reading large file
+const readStream = fs.createReadStream('large-file.txt', {
+    encoding: 'utf8',
+    highWaterMark: 16 * 1024  // 16KB chunks
+});
+
+readStream.on('data', (chunk) => {
+    console.log('Received chunk:', chunk.length, 'bytes');
+});
+
+readStream.on('end', () => {
+    console.log('Finished reading file');
+});
+
+readStream.on('error', (error) => {
+    console.error('Error reading file:', error);
+});
+
+// Writable stream - Writing to file
+const writeStream = fs.createWriteStream('output.txt');
+
+writeStream.write('Hello, ');
+writeStream.write('World!');
+writeStream.end();  // Close stream
+
+writeStream.on('finish', () => {
+    console.log('Finished writing');
+});
+
+// Piping streams - Copy file efficiently
+const source = fs.createReadStream('source.txt');
+const destination = fs.createWriteStream('destination.txt');
+
+source.pipe(destination);
+
+source.on('end', () => {
+    console.log('File copied successfully');
+});
+
+// Transform stream - Modify data while streaming
+class UpperCaseTransform extends Transform {
+    _transform(chunk, encoding, callback) {
+        // Convert chunk to uppercase
+        const upperChunk = chunk.toString().toUpperCase();
+        this.push(upperChunk);
+        callback();
+    }
+}
+
+const upperTransform = new UpperCaseTransform();
+
+fs.createReadStream('input.txt')
+    .pipe(upperTransform)
+    .pipe(fs.createWriteStream('output-upper.txt'));
+
+// HTTP response with streams
+const http = require('http');
+
+http.createServer((req, res) => {
+    const stream = fs.createReadStream('large-file.txt');
+    stream.pipe(res);  // Stream file to client
+}).listen(3000);
+```
+
+### Module 8.2: Worker Threads
+
+**Description:** Worker threads allow running JavaScript in parallel, utilizing multiple CPU cores for CPU-intensive tasks.
+
+```javascript
+// worker.js - CPU-intensive task
+const { parentPort, workerData } = require('worker_threads');
+
+// Fibonacci calculation (CPU-intensive)
+function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+const result = fibonacci(workerData.num);
+
+// Send result back to main thread
+parentPort.postMessage(result);
+```
+
+```javascript
+// main.js - Main thread
+const { Worker } = require('worker_threads');
+
+function runWorker(num) {
+    return new Promise((resolve, reject) => {
+        // Create worker
+        const worker = new Worker('./worker.js', {
+            workerData: { num }
+        });
+        
+        // Listen for messages from worker
+        worker.on('message', resolve);
+        worker.on('error', reject);
+        worker.on('exit', (code) => {
+            if (code !== 0) {
+                reject(new Error(`Worker stopped with exit code ${code}`));
+            }
+        });
+    });
+}
+
+// Run multiple workers in parallel
+async function runMultipleWorkers() {
+    const promises = [
+        runWorker(40),
+        runWorker(41),
+        runWorker(42)
+    ];
+    
+    const results = await Promise.all(promises);
+    console.log('Results:', results);
+}
+
+runMultipleWorkers();
+```
+
+### Module 8.3: Cluster Module
+
+**Description:** Cluster module allows creating child processes that share the same server port, utilizing all CPU cores.
+
+```javascript
+// server-cluster.js
+const cluster = require('cluster');
+const http = require('http');
+const os = require('os');
+const numCPUs = os.cpus().length;
+
+if (cluster.isMaster) {
+    console.log(`Master process ${process.pid} is running`);
+    
+    // Fork workers (one per CPU core)
+    for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
+    
+    // Handle worker exit
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`Worker ${worker.process.pid} died`);
+        console.log('Starting a new worker');
+        cluster.fork();  // Restart worker
+    });
+    
+} else {
+    // Workers can share any TCP connection
+    http.createServer((req, res) => {
+        res.writeHead(200);
+        res.end(`Response from worker ${process.pid}`);
+    }).listen(3000);
+    
+    console.log(`Worker ${process.pid} started`);
+}
+```
+
+**With Express:**
+
+```javascript
+const cluster = require('cluster');
+const express = require('express');
+const os = require('os');
+
+if (cluster.isMaster) {
+    const numCPUs = os.cpus().length;
+    console.log(`Master ${process.pid} is running`);
+    console.log(`Forking ${numCPUs} workers...`);
+    
+    for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
+    
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`Worker ${worker.process.pid} died`);
+        cluster.fork();
+    });
+    
+} else {
+    const app = express();
+    
+    app.get('/', (req, res) => {
+        res.json({
+            message: 'Hello from cluster',
+            worker: process.pid
+        });
+    });
+    
+    app.listen(3000, () => {
+        console.log(`Worker ${process.pid} listening on port 3000`);
+    });
+}
+```
+
+### Module 8.4: WebSockets
+
+**Installation:**
+```bash
+npm install ws
+```
+
+**WebSocket Server:**
+
+```javascript
+// websocket-server.js
+const WebSocket = require('ws');
+const http = require('http');
+
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
+
+// Store connected clients
+const clients = new Set();
+
+wss.on('connection', (ws) => {
+    console.log('New client connected');
+    clients.add(ws);
+    
+    // Send welcome message
+    ws.send(JSON.stringify({
+        type: 'connection',
+        message: 'Welcome to WebSocket server'
+    }));
+    
+    // Handle incoming messages
+    ws.on('message', (message) => {
+        console.log('Received:', message.toString());
+        
+        const data = JSON.parse(message);
+        
+        // Broadcast to all clients
+        broadcast({
+            type: 'message',
+            data: data,
+            timestamp: new Date()
+        });
+    });
+    
+    // Handle client disconnect
+    ws.on('close', () => {
+        console.log('Client disconnected');
+        clients.delete(ws);
+    });
+    
+    // Handle errors
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+    });
+});
+
+// Broadcast message to all clients
+function broadcast(message) {
+    const data = JSON.stringify(message);
+    
+    clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+        }
+    });
+}
+
+server.listen(8080, () => {
+    console.log('WebSocket server listening on port 8080');
+});
+```
+
+**WebSocket Client:**
+
+```javascript
+// client.js
+const WebSocket = require('ws');
+
+const ws = new WebSocket('ws://localhost:8080');
+
+ws.on('open', () => {
+    console.log('Connected to server');
+    
+    // Send message
+    ws.send(JSON.stringify({
+        user: 'John',
+        message: 'Hello, Server!'
+    }));
+});
+
+ws.on('message', (data) => {
+    const message = JSON.parse(data);
+    console.log('Received:', message);
+});
+
+ws.on('close', () => {
+    console.log('Disconnected from server');
+});
+
+ws.on('error', (error) => {
+    console.error('Error:', error);
+});
+```
+
+**Real-time Chat Application:**
+
+```javascript
+// chat-server.js
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+const users = new Map();  // username -> WebSocket
+
+wss.on('connection', (ws) => {
+    let username;
+    
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
+        
+        switch (data.type) {
+            case 'join':
+                username = data.username;
+                users.set(username, ws);
+                
+                // Notify all users
+                broadcast({
+                    type: 'user-joined',
+                    username: username,
+                    userCount: users.size
+                });
+                break;
+                
+            case 'message':
+                // Broadcast message to all users
+                broadcast({
+                    type: 'message',
+                    username: username,
+                    text: data.text,
+                    timestamp: new Date()
+                });
+                break;
+                
+            case 'typing':
+                // Notify others that user is typing
+                broadcast({
+                    type: 'typing',
+                    username: username
+                }, username);
+                break;
+        }
+    });
+    
+    ws.on('close', () => {
+        if (username) {
+            users.delete(username);
+            
+            broadcast({
+                type: 'user-left',
+                username: username,
+                userCount: users.size
+            });
+        }
+    });
+});
+
+function broadcast(message, excludeUser = null) {
+    const data = JSON.stringify(message);
+    
+    users.forEach((client, user) => {
+        if (user !== excludeUser && client.readyState === WebSocket.OPEN) {
+            client.send(data);
+        }
+    });
+}
+
+server.listen(3000, () => {
+    console.log('Chat server running on port 3000');
+});
+```
+
+### Module 8.5: GraphQL
+
+**Installation:**
+```bash
+npm install apollo-server-express graphql
+```
+
+**GraphQL Server:**
+
+```javascript
+const express = require('express');
+const { ApolloServer, gql } = require('apollo-server-express');
+
+// Type definitions (schema)
+const typeDefs = gql`
+    type User {
+        id: ID!
+        name: String!
+        email: String!
+        age: Int
+        posts: [Post!]!
+    }
+    
+    type Post {
+        id: ID!
+        title: String!
+        content: String!
+        author: User!
+    }
+    
+    type Query {
+        users: [User!]!
+        user(id: ID!): User
+        posts: [Post!]!
+        post(id: ID!): Post
+    }
+    
+    type Mutation {
+        createUser(name: String!, email: String!, age: Int): User!
+        createPost(title: String!, content: String!, authorId: ID!): Post!
+    }
+`;
+
+// Sample data
+const users = [
+    { id: '1', name: 'John Doe', email: 'john@example.com', age: 30 },
+    { id: '2', name: 'Jane Smith', email: 'jane@example.com', age: 25 }
+];
+
+const posts = [
+    { id: '1', title: 'First Post', content: 'Hello World', authorId: '1' },
+    { id: '2', title: 'Second Post', content: 'GraphQL is awesome', authorId: '1' }
+];
+
+// Resolvers - How to fetch data
+const resolvers = {
+    Query: {
+        users: () => users,
+        user: (parent, args) => users.find(u => u.id === args.id),
+        posts: () => posts,
+        post: (parent, args) => posts.find(p => p.id === args.id)
+    },
+    
+    Mutation: {
+        createUser: (parent, args) => {
+            const newUser = {
+                id: String(users.length + 1),
+                name: args.name,
+                email: args.email,
+                age: args.age
+            };
+            users.push(newUser);
+            return newUser;
+        },
+        
+        createPost: (parent, args) => {
+            const newPost = {
+                id: String(posts.length + 1),
+                title: args.title,
+                content: args.content,
+                authorId: args.authorId
+            };
+            posts.push(newPost);
+            return newPost;
+        }
+    },
+    
+    User: {
+        posts: (parent) => posts.filter(p => p.authorId === parent.id)
+    },
+    
+    Post: {
+        author: (parent) => users.find(u => u.id === parent.authorId)
+    }
+};
+
+// Create Apollo Server
+const server = new ApolloServer({
+    typeDefs,
+    resolvers
+});
+
+const app = express();
+
+async function startServer() {
+    await server.start();
+    server.applyMiddleware({ app });
+    
+    app.listen(4000, () => {
+        console.log(`Server ready at http://localhost:4000${server.graphqlPath}`);
+    });
+}
+
+startServer();
+```
+
+**GraphQL Queries:**
+
+```graphql
+# Get all users
+query {
+    users {
+        id
+        name
+        email
+        posts {
+            title
+        }
+    }
+}
+
+# Get specific user
+query {
+    user(id: "1") {
+        name
+        email
+        posts {
+            title
+            content
+        }
+    }
+}
+
+# Create user mutation
+mutation {
+    createUser(name: "Bob", email: "bob@example.com", age: 35) {
+        id
+        name
+        email
+    }
+}
+
+# Create post mutation
+mutation {
+    createPost(title: "New Post", content: "Content here", authorId: "1") {
+        id
+        title
+        author {
+            name
+        }
+    }
+}
+```
+
+---
+
+## Phase 9: Production & Deployment
+
+### Module 9.1: Environment Configuration
+
+**.env File:**
+```
+# .env
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=mongodb://localhost:27017/myapp
+JWT_SECRET=your-secret-key-here
+JWT_EXPIRE=7d
+API_KEY=your-api-key
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-password
+```
+
+**Configuration Management:**
+
+```javascript
+// config/config.js
+require('dotenv').config();
+
+module.exports = {
+    env: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || 3000,
+    database: {
+        url: process.env.DATABASE_URL,
+        options: {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        }
+    },
+    jwt: {
+        secret: process.env.JWT_SECRET,
+        expire: process.env.JWT_EXPIRE
+    },
+    email: {
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD
+        }
+    }
+};
+```
+
+**Different Environments:**
+
+```javascript
+// config/env/development.js
+module.exports = {
+    database: {
+        url: 'mongodb://localhost:27017/myapp-dev',
+        debug: true
+    },
+    logging: 'dev',
+    cors: {
+        origin: '*'
+    }
+};
+
+// config/env/production.js
+module.exports = {
+    database: {
+        url: process.env.DATABASE_URL,
+        debug: false
+    },
+    logging: 'combined',
+    cors: {
+        origin: 'https://yourdomain.com'
+    }
+};
+
+// Load environment-specific config
+const env = process.env.NODE_ENV || 'development';
+const config = require(`./env/${env}`);
+```
+
+### Module 9.2: Logging and Monitoring
+
+**Winston Logger Setup:**
+
+```javascript
+// utils/logger.js
+const winston = require('winston');
+const path = require('path');
+
+const logger = winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    format: winston.format.combine(
+        winston.format.timestamp({
+            format: 'YYYY-MM-DD HH:mm:ss'
+        }),
+        winston.format.errors({ stack: true }),
+        winston.format.splat(),
+        winston.format.json()
+    ),
+    defaultMeta: { service: 'my-app' },
+    transports: [
+        // Error logs
+        new winston.transports.File({
+            filename: path.join('logs', 'error.log'),
+            level: 'error',
+            maxsize: 5242880, // 5MB
+            maxFiles: 5
+        }),
+        // Combined logs
+        new winston.transports.File({
+            filename: path.join('logs', 'combined.log'),
+            maxsize: 5242880,
+            maxFiles: 5
+        })
+    ],
+    exceptionHandlers: [
+        new winston.transports.File({
+            filename: path.join('logs', 'exceptions.log')
+        })
+    ]
+});
+
+// Console logging in development
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple()
+        )
+    }));
+}
+
+module.exports = logger;
+```
+
+**Morgan HTTP Logging:**
+
+```javascript
+const morgan = require('morgan');
+const fs = require('fs');
+const path = require('path');
+
+// Create write stream for access logs
+const accessLogStream = fs.createWriteStream(
+    path.join(__dirname, 'logs', 'access.log'),
+    { flags: 'a' }
+);
+
+// Setup morgan
+app.use(morgan('combined', { stream: accessLogStream }));
+
+// In development, also log to console
+if (process.env.NODE_ENV === 'development') {
+    app.use(morgan('dev'));
+}
+```
+
+### Module 9.3: Docker Containerization
+
+**Dockerfile:**
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy application files
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+
+# Start application
+CMD ["node", "server.js"]
+```
+
+**docker-compose.yml:**
+
+```yaml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=mongodb://mongo:27017/myapp
+    depends_on:
+      - mongo
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+  
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+  
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+```
+
+**.dockerignore:**
+
+```
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+README.md
+logs
+*.md
+.vscode
+```
+
+**Build and Run:**
+
+```bash
+# Build image
+docker build -t my-node-app .
+
+# Run container
+docker run -p 3000:3000 my-node-app
+
+# Using docker-compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop containers
+docker-compose down
+```
+
+### Module 9.4: CI/CD with GitHub Actions
+
+**.github/workflows/node.yml:**
+
+```yaml
+name: Node.js CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Generate coverage report
+      run: npm run test:coverage
+  
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: username/my-node-app:latest
+  
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to production
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /app
+          docker-compose pull
+          docker-compose up -d
+          docker system prune -f
+```
+
+### Module 9.5: Cloud Deployment
+
+**Heroku Deployment:**
+
+```bash
+# Install Heroku CLI
+# Login
+heroku login
+
+# Create app
+heroku create my-node-app
+
+# Add MongoDB addon
+heroku addons:create mongodb atlas:sandbox
+
+# Set environment variables
+heroku config:set NODE_ENV=production
+heroku config:set JWT_SECRET=your-secret
+
+# Deploy
+git push heroku main
+
+# View logs
+heroku logs --tail
+```
+
+**Procfile (Heroku):**
+```
+web: node server.js
+```
+
+**AWS EC2 Deployment:**
+
+```bash
+# Connect to EC2 instance
+ssh -i key.pem ubuntu@ec2-ip-address
+
+# Install Node.js
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install PM2
+sudo npm install -g pm2
+
+# Clone repository
+git clone https://github.com/yourusername/your-repo.git
+cd your-repo
+
+# Install dependencies
+npm install --production
+
+# Start with PM2
+pm2 start server.js --name my-app
+
+# Save PM2 configuration
+pm2 save
+pm2 startup
+
+# Monitor
+pm2 monit
+pm2 logs
+```
+
+**PM2 Ecosystem File:**
+
+```javascript
+// ecosystem.config.js
+module.exports = {
+    apps: [{
+        name: 'my-app',
+        script: './server.js',
+        instances: 'max',  // Use all CPU cores
+        exec_mode: 'cluster',
+        env: {
+            NODE_ENV: 'development'
+        },
+        env_production: {
+            NODE_ENV: 'production'
+        },
+        error_file: './logs/err.log',
+        out_file: './logs/out.log',
+        log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+        max_memory_restart: '1G',
+        autorestart: true,
+        watch: false
+    }]
+};
+```
+
+**Start with PM2:**
+```bash
+pm2 start ecosystem.config.js --env production
+```
+
+### Module 9.6: Performance Optimization
+
+**Caching with Redis:**
+
+```bash
+npm install redis
+```
+
+```javascript
+const redis = require('redis');
+const client = redis.createClient({
+    host: 'localhost',
+    port: 6379
+});
+
+client.on('error', (err) => {
+    console.error('Redis error:', err);
+});
+
+// Cache middleware
+const cacheMiddleware = (duration) => {
+    return (req, res, next) => {
+        const key = `cache:${req.originalUrl}`;
+        
+        client.get(key, (err, data) => {
+            if (err) throw err;
+            
+            if (data) {
+                // Return cached data
+                return res.json(JSON.parse(data));
+            } else {
+                // Store original send function
+                res.sendResponse = res.json;
+                
+                // Override json function
+                res.json = (body) => {
+                    // Cache response
+                    client.setex(key, duration, JSON.stringify(body));
+                    res.sendResponse(body);
+                };
+                
+                next();
+            }
+        });
+    };
+};
+
+// Use caching
+app.get('/api/users', cacheMiddleware(300), async (req, res) => {
+    const users = await User.find();
+    res.json({ success: true, data: users });
+});
+```
+
+**Compression:**
+
+```javascript
+const compression = require('compression');
+
+// Enable gzip compression
+app.use(compression({
+    level: 6,  // Compression level (0-9)
+    threshold: 1024,  // Only compress responses larger than 1KB
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+            return false;
+        }
+        return compression.filter(req, res);
+    }
+}));
+```
+
+**Database Indexing:**
+
+```javascript
+// Create indexes in Mongoose
+userSchema.index({ email: 1 });  // Single field index
+userSchema.index({ name: 1, email: 1 });  // Compound index
+userSchema.index({ location: '2dsphere' });  // Geospatial index
+
+// Text search index
+postSchema.index({ title: 'text', content: 'text' });
+
+// Use indexes in queries
+const users = await User.find({ email: 'john@example.com' });  // Uses index
+const posts = await Post.find({ $text: { $search: 'nodejs' } });  // Text search
+```
+
+---
+
+## Conclusion
+
+Congratulations! You've completed the comprehensive Node.js Mastery Tutorial covering all 9 phases:
+
+**✅ Phase 1 - JavaScript Essentials:**
+- Variables, data types, operators
+- Control flow and loops
+- Functions, scope, closures
+- Objects and arrays
+- Modern ES6+ features
+- Classes and OOP
+
+**✅ Phase 2 - Node.js Fundamentals:**
+- Node.js basics and globals
+- Module systems (CommonJS & ES)
+- File system operations
+- Path and OS modules
+
+**✅ Phase 3 - Asynchronous Programming:**
+- Callbacks and callback hell
+- Promises and chaining
+- Async/await patterns
+- Error handling
+
+**✅ Phase 4 - Express.js Framework:**
+- Server setup and routing
+- Middleware (built-in & custom)
+- Express Router
+- Request/Response handling
+
+**✅ Phase 5 - Database Integration:**
+- MongoDB with Mongoose
+- CRUD operations
+- Schema design and validation
+- RESTful API development
+
+**✅ Phase 6 - Authentication & Security:**
+- JWT authentication
+- Password hashing with bcrypt
+- Protected routes
+- Security best practices (helmet, rate limiting, XSS prevention)
+
+**✅ Phase 7 - Testing & Debugging:**
+- Unit testing with Jest
+- API testing with Supertest
+- Debugging techniques
+- Logging with Winston
+
+**✅ Phase 8 - Advanced Topics:**
+- Streams for efficient data processing
+- Worker threads for CPU-intensive tasks
+- Cluster module for multi-core utilization
+- WebSockets for real-time communication
+- GraphQL API development
+
+**✅ Phase 9 - Production & Deployment:**
+- Environment configuration
+- Logging and monitoring
+- Docker containerization
+- CI/CD pipelines
+- Cloud deployment (Heroku, AWS)
+- Performance optimization
+
+### Next Steps:
+
+**Build Real Projects:**
+1. **REST API with Authentication** - User management system
+2. **Real-time Chat App** - Using WebSockets
+3. **E-commerce Backend** - Products, cart, orders
+4. **Blog Platform** - CRUD with comments and likes
+5. **Task Management API** - Teams and projects
+6. **Social Media API** - Posts, followers, feed
+
+**Advanced Learning:**
+- Microservices architecture
+- Message queues (RabbitMQ, Kafka)
+- Event-driven architecture
+- Serverless with AWS Lambda
+- TypeScript with Node.js
+- NestJS framework
+
+**Best Practices:**
+- Follow RESTful conventions
+- Write clean, documented code
+- Implement comprehensive testing
+- Use version control (Git)
+- Monitor application performance
+- Keep dependencies updated
+- Follow security best practices
+
+**Resources:**
+- Official Node.js Documentation: https://nodejs.org/docs
+- Express.js Guide: https://expressjs.com
+- MDN JavaScript: https://developer.mozilla.org
+- MongoDB University: https://university.mongodb.com
+- Node.js Design Patterns (book)
+- freeCodeCamp Node.js courses
+
+**Community:**
+- Node.js Discord
+- Stack Overflow
+- Reddit r/node
+- GitHub discussions
+
+You're now equipped with comprehensive Node.js knowledge from beginner to advanced level. Keep practicing, building projects, and exploring new technologies!
+
+Happy coding! 🚀💻
+
+---
+
+**End of Node.js Mastery Tutorial - Complete Edition**
+
+*Version: 2.0*  
 *Last Updated: December 2025*  
-*License: MIT*
+*License: MIT*  
+*Tutorial Size: 9 Complete Phases*  
+*Skill Level: Beginner to Advanced*
 
