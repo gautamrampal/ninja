@@ -2911,3 +2911,126 @@ static const char *ap_build_config(apr_pool_t *p, apr_pool_t *temp_pool,
 {
     ap_configfile_t *cfp;
     char *l;
+    apr_status_t status;
+    
+    /* Open configuration file */
+    status = ap_pcfg_openfile(&cfp, p, filename);
+    if (status != APR_SUCCESS) {
+        return apr_psprintf(p, "Could not open configuration file %s", filename);
+    }
+    
+    /* Parse directives recursively */
+    return parse_directives(p, cfp, conftree);
+}
+```
+
+---
+
+## Conclusion
+
+This tutorial covered the Apache HTTP Server source code from basic concepts to advanced implementations. You've learned:
+
+**Core Concepts:**
+1. ✅ APR (Apache Portable Runtime) fundamentals
+2. ✅ Core data structures (request_rec, server_rec, conn_rec)
+3. ✅ Request processing pipeline
+4. ✅ Module system architecture
+5. ✅ Filter chain implementation
+6. ✅ MPM (Multi-Processing Modules)
+7. ✅ Configuration system
+8. ✅ Memory management with pools
+9. ✅ Security implementation
+10. ✅ Performance optimization
+
+**Next Steps:**
+
+**Beginner Path:**
+- Clone Apache httpd repository
+- Build from source
+- Read `include/httpd.h`
+- Study simple modules
+- Create your first custom module
+
+**Intermediate Path:**
+- Implement custom authentication module
+- Build content transformation filter
+- Study MPM implementations
+- Debug with GDB
+- Contribute documentation
+
+**Advanced Path:**
+- Implement caching module
+- Create custom protocol module
+- Optimize request processing
+- Profile performance
+- Contribute features/bug fixes
+
+**Resources:**
+
+```bash
+# Clone repository
+git clone https://github.com/apache/httpd.git
+cd httpd
+
+# Build
+./buildconf
+./configure --prefix=/usr/local/apache2
+make
+make install
+```
+
+**Practice Projects:**
+1. Build authentication module with database backend
+2. Create custom logging module
+3. Implement request/response transformation filter
+4. Build rate limiting module
+5. Create caching proxy module
+6. Implement custom protocol handler
+7. Build load balancer module
+8. Create security scanner module
+
+**Community Resources:**
+- Apache HTTP Server Mailing Lists
+- Apache Bugzilla
+- GitHub Issues and Pull Requests
+- Apache Module Developer's Guide
+- APR Documentation
+
+**Books:**
+- "Apache Cookbook" by Rich Bowen
+- "Pro Apache" by Peter Wainwright
+- "The Apache Modules Book" by Nick Kew
+
+**Tips for Success:**
+- Start small - understand one module completely
+- Read existing module code extensively
+- Use GDB to trace execution flow
+- Enable debug logging
+- Test thoroughly with various scenarios
+- Document your code
+- Follow Apache coding standards
+- Engage with the community
+
+**Remember:**
+> "The best way to learn is by reading code and writing code."
+> - Apache Community
+
+Happy coding! 🚀
+
+---
+
+**End of Apache HTTP Server Source Code Mastery Tutorial**
+
+*Version: 1.0*  
+*Last Updated: December 2025*  
+*License: Apache License 2.0*  
+*Contributions Welcome*
+
+**About This Tutorial:**
+This comprehensive guide takes you from Apache HTTP Server basics to advanced source code mastery. Whether you're building custom modules, optimizing performance, or contributing to the project, this tutorial provides the foundational knowledge and practical examples you need.
+
+**Feedback:**
+Found an error or have suggestions? Open an issue or submit a pull request on GitHub.
+
+**Acknowledgments:**
+Thanks to the Apache HTTP Server development team and community for creating and maintaining this amazing open-source project.
