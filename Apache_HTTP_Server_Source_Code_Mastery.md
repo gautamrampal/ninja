@@ -2919,9 +2919,1185 @@ static const char *ap_build_config(apr_pool_t *p, apr_pool_t *temp_pool,
         return apr_psprintf(p, "Could not open configuration file %s", filename);
     }
     
-    /* Parse directives recursively */
+   /* Parse directives recursively */
     return parse_directives(p, cfp, conftree);
 }
+```
+
+### 11.2 Configuration Directives
+
+**Directive Handler Registration:**
+```c
+/* modules/http/http_core.c */
+
+/* Directive definition structure */
+typedef struct command_struct command_rec;
+
+struct command_struct {
+    const char *name;              /* Directive name */
+    cmd_func func;                 /* Handler function */
+    void *cmd_data;                /* Custom data */
+    int req_override;              /* Override requirements */
+    enum cmd_how args_how;         /* Argument parsing mode */
+    const char *errmsg;            /* Usage message */
+};
+
+/* Example directive handler */
+static const char *set_document_root(cmd_parms *cmd, void *dummy,
+                                     const char *arg)
+{
+    server_rec *s = cmd->server;
+    
+    /* Validate path */
+    if (!ap_is_directory(cmd->pool, arg)) {
+        return apr_psprintf(cmd->pool,
+                          "DocumentRoot must be a directory: %s", arg);
+    }
+    
+    /* Set document root */
+    s->path = apr_pstrdup(cmd->pool, arg);
+    
+    return NULL;  /* NULL means success */
+}
+
+/* Register directives */
+static const command_rec core_cmds[] = {
+    AP_INIT_TAKE1("DocumentRoot", set_document_root, NULL, RSRC_CONF,
+                  "Root directory of the document tree"),
+    AP_INIT_TAKE1("ServerName", set_server_name, NULL, RSRC_CONF,
+                  "The server hostname"),
+    { NULL }  /* Terminator */
+};
+```
+
+---
+
+## 12. Hook System {#hook-system}
+
+### 12.1 Hook Registration and Execution
+
+**Description:** Apache's hook system allows modules to insert custom processing at specific points in the request lifecycle. Hooks are executed in a defined order and can modify request behavior.
+
+**Hook Implementation:**
+```c
+/* include/http_config.h */
+
+/* Hook ordering constants */
+typedef enum {
+    APR_HOOK_REALLY_FIRST = -10,
+    APR_HOOK_FIRST = 0,
+    APR_HOOK_MIDDLE = 10,
+    APR_HOOK_LAST = 20,
+    APR_HOOK_REALLY_LAST = 30
+} ap_hook_order_e;
+
+/* Hook return values */
+#define OK 0                    /* Success, continue */
+#define DECLINED -1             /* Not handled, try next */
+#define DONE -2                 /* Stop processing, return OK */
+
+/* HTTP status codes (also valid return values) */
+#define HTTP_OK 200
+#define HTTP_FORBIDDEN 403
+#define HTTP_NOT_FOUND 404
+#define HTTP_INTERNAL_SERVER_ERROR 500
+```
+
+### 12.2 Common Request Processing Hooks
+
+**Description:** These hooks execute in order during request processing. Each hook can accept, reject, or modify the request.
+
+**Main Hooks (in execution order):**
+```c
+/* server/request.c */
+
+// 1. Post-read request - earliest processing
+AP_DECLARE_HOOK(int, post_read_request, (request_rec *r))
+
+// 2. Translate name - URI to filename
+AP_DECLARE_HOOK(int, translate_name, (request_rec *r))
+
+// 3. Map to storage - modify filename
+AP_DECLARE_HOOK(int, map_to_storage, (request_rec *r))
+
+// 4. Header parser - process headers
+AP_DECLARE_HOOK(int, header_parser, (request_rec *r))
+
+// 5. Access checker - URI-based access control
+AP_DECLARE_HOOK(int, access_checker, (request_rec *r))
+
+// 6. Check user ID - authentication
+AP_DECLARE_HOOK(int, check_user_id, (request_rec *r))
+
+// 7. Auth checker - authorization
+AP_DECLARE_HOOK(int, auth_checker, (request_rec *r))
+
+// 8. Type checker - determine content type
+AP_DECLARE_HOOK(int, type_checker, (request_rec *r))
+
+// 9. Fixups - final modifications before handler
+AP_DECLARE_HOOK(int, fixups, (request_rec *r))
+
+// 10. Insert filter - add filters to chain
+AP_DECLARE_HOOK(void, insert_filter, (request_rec *r))
+
+// 11. Handler - generate response content
+AP_DECLARE_HOOK(int, handler, (request_rec *r))
+
+// 12. Log transaction - logging after response
+AP_DECLARE_HOOK(int, log_transaction, (request_rec *r))
+```
+
+**Registering Hooks in Module:**
+```c
+/* Example: Registering hooks */
+static void register_hooks(apr_pool_t *p)
+{
+    /* Run after mod_rewrite but before others */
+    static const char * const aszPre[] = { "mod_rewrite.c", NULL };
+    static const char * const aszSucc[] = { "mod_cgi.c", NULL };
+    
+    /* Register translate_name hook */
+    ap_hook_translate_name(my_translate_name,
+                          aszPre, aszSucc, APR_HOOK_MIDDLE);
+    
+    /* Register handler hook */
+    ap_hook_handler(my_handler, NULL, NULL, APR_HOOK_FIRST);
+    
+    /* Register logger hook */
+    ap_hook_log_transaction(my_logger, NULL, NULL, APR_HOOK_LAST);
+}
+
+/* Example hook implementation */
+static int my_access_checker(request_rec *r)
+{
+    /* Check if IP is blacklisted */
+    if (is_ip_blacklisted(r->connection->client_ip)) {
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                     "Access denied: IP %s is blacklisted",
+                     r->connection->client_ip);
+        return HTTP_FORBIDDEN;  /* Reject request */
+    }
+    
+    return DECLINED;  /* Not handled, let other modules decide */
+}
+```
+
+---
+
+## 13. Filter Chain Architecture {#filter-chain}
+
+### 13.1 Filter Basics
+
+**Description:** Filters transform request/response data as it flows through Apache. They operate on bucket brigades (linked lists of data buckets) and can modify, add, or remove data.
+
+**Filter Structure:**
+```c
+/* include/util_filter.h */
+
+/* Filter types (execution order) */
+typedef enum {
+    AP_FTYPE_RESOURCE     = 10,   /* Resource-level filters */
+    AP_FTYPE_CONTENT_SET  = 20,   /* Content filters */
+    AP_FTYPE_PROTOCOL     = 30,   /* Protocol filters */
+    AP_FTYPE_TRANSCODE    = 40,   /* Transcoding filters */
+    AP_FTYPE_CONNECTION   = 50,   /* Connection filters */
+    AP_FTYPE_NETWORK      = 60    /* Network filters */
+} ap_filter_type;
+
+/* Filter record - template for filters */
+struct ap_filter_rec_t {
+    const char *name;              /* Filter name */
+    ap_filter_func filter_func;    /* Filter function */
+    ap_filter_type ftype;          /* Filter type */
+    struct ap_filter_rec_t *next;  /* Next registered filter */
+};
+
+/* Filter instance - active filter in chain */
+struct ap_filter_t {
+    ap_filter_rec_t *frec;         /* Filter definition */
+    void *ctx;                     /* Filter context data */
+    ap_filter_t *next;             /* Next filter in chain */
+    request_rec *r;                /* Associated request */
+    conn_rec *c;                   /* Associated connection */
+};
+```
+
+### 13.2 Output Filter Example
+
+**Description:** Output filters process response data before sending to client. This example converts text to uppercase.
+
+**Uppercase Filter Implementation:**
+```c
+/* modules/filters/mod_uppercase.c */
+
+#include "httpd.h"
+#include "http_config.h"
+#include "util_filter.h"
+#include "apr_buckets.h"
+
+typedef struct {
+    apr_bucket_brigade *bb;        /* Working brigade */
+} uppercase_ctx;
+
+/* Filter function */
+static apr_status_t uppercase_filter(ap_filter_t *f,
+                                    apr_bucket_brigade *bb)
+{
+    request_rec *r = f->r;
+    uppercase_ctx *ctx = f->ctx;
+    apr_bucket *b;
+    apr_status_t rv;
+    
+    /* Create context on first call */
+    if (!ctx) {
+        ctx = apr_pcalloc(r->pool, sizeof(uppercase_ctx));
+        ctx->bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
+        f->ctx = ctx;
+    }
+    
+    /* Process each bucket in brigade */
+    for (b = APR_BRIGADE_FIRST(bb);
+         b != APR_BRIGADE_SENTINEL(bb);
+         b = APR_BUCKET_NEXT(b)) {
+        
+        /* Handle EOS (End Of Stream) */
+        if (APR_BUCKET_IS_EOS(b)) {
+            APR_BUCKET_REMOVE(b);
+            APR_BRIGADE_INSERT_TAIL(ctx->bb, b);
+            break;
+        }
+        
+        /* Skip metadata buckets */
+        if (APR_BUCKET_IS_METADATA(b)) {
+            APR_BUCKET_REMOVE(b);
+            APR_BRIGADE_INSERT_TAIL(ctx->bb, b);
+            continue;
+        }
+        
+        /* Read bucket data */
+        const char *data;
+        apr_size_t len;
+        
+        rv = apr_bucket_read(b, &data, &len, APR_BLOCK_READ);
+        if (rv != APR_SUCCESS) {
+            return rv;
+        }
+        
+        /* Transform data to uppercase */
+        char *upper = apr_palloc(r->pool, len);
+        for (apr_size_t i = 0; i < len; i++) {
+            upper[i] = apr_toupper(data[i]);
+        }
+        
+        /* Create new bucket with transformed data */
+        apr_bucket *new_b = apr_bucket_pool_create(upper, len, r->pool,
+                                                   r->connection->bucket_alloc);
+        APR_BRIGADE_INSERT_TAIL(ctx->bb, new_b);
+        
+        /* Remove original bucket */
+        apr_bucket_delete(b);
+    }
+    
+    /* Pass transformed data to next filter */
+    if (!APR_BRIGADE_EMPTY(ctx->bb)) {
+        rv = ap_pass_brigade(f->next, ctx->bb);
+        apr_brigade_cleanup(ctx->bb);
+        return rv;
+    }
+    
+    return APR_SUCCESS;
+}
+
+/* Register and insert filter */
+static void register_hooks(apr_pool_t *p)
+{
+    ap_register_output_filter("UPPERCASE",
+                             uppercase_filter,
+                             NULL,
+                             AP_FTYPE_CONTENT_SET);
+}
+
+static void insert_uppercase_filter(request_rec *r)
+{
+    /* Only for HTML content */
+    if (r->content_type &&
+        strncmp(r->content_type, "text/html", 9) == 0) {
+        ap_add_output_filter("UPPERCASE", NULL, r, r->connection);
+    }
+}
+```
+
+---
+
+## 14. Performance Optimization {#performance}
+
+### 14.1 Apache Configuration Tuning
+
+**Description:** Proper configuration is critical for performance. These settings optimize Apache for high-traffic scenarios.
+
+**Optimal Configuration:**
+```apache
+# httpd.conf - Performance tuning
+
+# 1. Use Event MPM for high concurrency
+LoadModule mpm_event_module modules/mod_mpm_event.so
+
+<IfModule mpm_event_module>
+    # Adjust based on available RAM and CPU cores
+    # Formula: MaxRequestWorkers = (RAM - other) / process_size
+    StartServers             3
+    MinSpareThreads         75
+    MaxSpareThreads        250
+    ThreadsPerChild         25
+    MaxRequestWorkers      400       # Max concurrent connections
+    MaxConnectionsPerChild   0        # 0 = unlimited (recycle disabled)
+    
+    # Async I/O settings
+    AsyncRequestWorkerFactor  2      # Multiplier for keep-alive connections
+</IfModule>
+
+# 2. Enable KeepAlive with reasonable timeout
+KeepAlive On
+MaxKeepAliveRequests 100             # Requests per connection
+KeepAliveTimeout 5                   # Seconds (short to free resources)
+
+# 3. Compress responses to reduce bandwidth
+LoadModule deflate_module modules/mod_deflate.so
+<IfModule mod_deflate.c>
+    # Compress text-based content
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml
+    AddOutputFilterByType DEFLATE text/css text/javascript
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    
+    # Don't compress images (already compressed)
+    SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png)$ no-gzip
+</IfModule>
+
+# 4. Enable caching for static content
+LoadModule cache_module modules/mod_cache.so
+LoadModule cache_disk_module modules/mod_cache_disk.so
+
+<IfModule mod_cache.c>
+    CacheEnable disk "/"                    # Enable disk caching
+    CacheRoot "/var/cache/apache2/mod_cache_disk"
+    CacheDirLevels 2                        # Directory depth
+    CacheDirLength 1                        # Characters per directory
+    CacheMaxFileSize 10000000               # 10 MB max cached file
+    CacheIgnoreHeaders Set-Cookie           # Don't cache cookies
+</IfModule>
+
+# 5. Set expiration headers for static assets
+LoadModule expires_module modules/mod_expires.so
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Cache images for 1 year
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    # Cache CSS/JS for 1 month
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# 6. Reduce DNS lookups (expensive)
+HostnameLookups Off
+
+# 7. Limit request size to prevent DoS
+LimitRequestBody 10485760          # 10 MB max request body
+LimitRequestFields 100             # Max headers count
+LimitRequestFieldSize 8190         # Max header size
+LimitRequestLine 8190              # Max request line size
+
+# 8. Enable HTTP/2 for better performance
+LoadModule http2_module modules/mod_http2.so
+Protocols h2 http/1.1
+
+# 9. Configure timeouts
+Timeout 60                         # Request timeout
+ProxyTimeout 60                    # Proxy timeout
+
+# 10. Disable unnecessary modules to reduce memory
+# Comment out modules you don't need
+```
+
+### 14.2 Connection Pooling Example
+
+**Description:** Connection pooling reuses database connections instead of creating new ones for each request, dramatically improving performance.
+
+**Database Connection Pool:**
+```c
+/* server/util_dbd.c */
+
+/* DBD connection pool structure */
+typedef struct {
+    apr_pool_t *pool;              /* Pool for connections */
+    apr_thread_mutex_t *mutex;     /* Mutex for thread safety */
+    apr_reslist_t *connections;    /* Connection resource list */
+    int min_connections;           /* Minimum connections */
+    int max_connections;           /* Maximum connections */
+    const char *driver;            /* DB driver name */
+    const char *params;            /* Connection parameters */
+} ap_dbd_t;
+
+/* Create new database connection */
+static apr_status_t dbd_construct(void **resource, void *params,
+                                 apr_pool_t *pool)
+{
+    ap_dbd_t *dbd = (ap_dbd_t *)params;
+    apr_dbd_t *handle;
+    const apr_dbd_driver_t *driver;
+    apr_status_t rv;
+    
+    /* Get driver */
+    rv = apr_dbd_get_driver(pool, dbd->driver, &driver);
+    if (rv != APR_SUCCESS) {
+        return rv;
+    }
+    
+    /* Open connection */
+    rv = apr_dbd_open(driver, pool, dbd->params, &handle);
+    if (rv != APR_SUCCESS) {
+        return rv;
+    }
+    
+    *resource = handle;
+    return APR_SUCCESS;
+}
+
+/* Destroy database connection */
+static apr_status_t dbd_destruct(void *resource, void *params,
+                                apr_pool_t *pool)
+{
+    apr_dbd_t *handle = (apr_dbd_t *)resource;
+    const apr_dbd_driver_t *driver = apr_dbd_driver_get(handle);
+    
+    /* Close connection */
+    return apr_dbd_close(driver, handle);
+}
+
+/* Initialize connection pool */
+static apr_status_t dbd_init(apr_pool_t *pool, ap_dbd_t *dbd)
+{
+    apr_status_t rv;
+    
+    /* Create resource list (connection pool)
+     * min: Minimum connections to maintain
+     * smax: Soft maximum (can grow to hmax under load)
+     * hmax: Hard maximum (never exceed)
+     * ttl: Time to live (0 = forever)
+     */
+    rv = apr_reslist_create(&dbd->connections,
+                           dbd->min_connections,    /* Min */
+                           dbd->max_connections,    /* Soft max */
+                           dbd->max_connections,    /* Hard max */
+                           0,                       /* TTL */
+                           dbd_construct,           /* Constructor */
+                           dbd_destruct,            /* Destructor */
+                           dbd,                     /* Params */
+                           pool);
+    
+    return rv;
+}
+
+/* Acquire connection from pool */
+static apr_status_t dbd_acquire(request_rec *r, ap_dbd_t *dbd,
+                               apr_dbd_t **handle)
+{
+    apr_status_t rv;
+    void *resource;
+    
+    /* Get connection from pool (waits if all in use) */
+    rv = apr_reslist_acquire(dbd->connections, &resource);
+    if (rv != APR_SUCCESS) {
+        return rv;
+    }
+    
+    *handle = (apr_dbd_t *)resource;
+    return APR_SUCCESS;
+}
+
+/* Release connection back to pool */
+static apr_status_t dbd_release(ap_dbd_t *dbd, apr_dbd_t *handle)
+{
+    /* Return connection to pool for reuse */
+    return apr_reslist_release(dbd->connections, handle);
+}
+```
+
+---
+
+## 15. Security Implementation {#security}
+
+### 15.1 Input Validation
+
+**Description:** Input validation prevents injection attacks and malformed requests. Always validate before processing.
+
+**Request Validation:**
+```c
+/* server/protocol.c */
+
+/* Validate request line for security */
+static int validate_request_line(request_rec *r)
+{
+    const char *uri = r->uri;
+    const char *method = r->method;
+    
+    /* 1. Check method validity */
+    static const char *valid_methods[] = {
+        "GET", "POST", "PUT", "DELETE", "HEAD",
+        "OPTIONS", "PATCH", "TRACE", "CONNECT", NULL
+    };
+    
+    int method_valid = 0;
+    for (int i = 0; valid_methods[i]; i++) {
+        if (strcmp(method, valid_methods[i]) == 0) {
+            method_valid = 1;
+            break;
+        }
+    }
+    
+    if (!method_valid) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "Invalid HTTP method: %s", method);
+        return HTTP_NOT_IMPLEMENTED;
+    }
+    
+    /* 2. Validate URI length */
+    if (strlen(uri) > r->server->limit_req_line) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "URI too long: %d bytes", (int)strlen(uri));
+        return HTTP_REQUEST_URI_TOO_LARGE;
+    }
+    
+    /* 3. Check for NULL bytes (common attack vector) */
+    if (memchr(uri, '\0', strlen(uri))) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "NULL byte in URI - possible injection attempt");
+        return HTTP_BAD_REQUEST;
+    }
+    
+    /* 4. Validate characters (prevent injection) */
+    for (const char *p = uri; *p; p++) {
+        if (!apr_isprint(*p) && *p != '\t') {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                         "Invalid character in URI: 0x%02x", (unsigned char)*p);
+            return HTTP_BAD_REQUEST;
+        }
+    }
+    
+    /* 5. Check for directory traversal attacks */
+    if (strstr(uri, "../") || strstr(uri, "..\\")) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "Directory traversal attempt in URI: %s", uri);
+        return HTTP_FORBIDDEN;
+    }
+    
+    return OK;
+}
+```
+
+### 15.2 Authentication Example
+
+**Description:** Basic Authentication validates username/password. Always use HTTPS in production!
+
+**Basic Authentication Module:**
+```c
+/* modules/aaa/mod_auth_basic.c */
+
+/* Authenticate user with Basic auth */
+static int authenticate_basic_user(request_rec *r)
+{
+    const char *auth_line;
+    const char *auth_scheme;
+    const char *credentials;
+    char *user, *password;
+    int res;
+    
+    /* Get Authorization header */
+    auth_line = apr_table_get(r->headers_in, "Authorization");
+    if (!auth_line) {
+        /* No credentials provided - request them */
+        ap_note_auth_failure(r);
+        return HTTP_UNAUTHORIZED;
+    }
+    
+    /* Parse auth scheme (should be "Basic") */
+    auth_scheme = ap_getword(r->pool, &auth_line, ' ');
+    if (strcasecmp(auth_scheme, "Basic") != 0) {
+        /* Not Basic auth - decline */
+        return DECLINED;
+    }
+    
+    /* Skip whitespace */
+    while (apr_isspace(*auth_line)) {
+        auth_line++;
+    }
+    
+    /* Decode Base64 credentials */
+    credentials = apr_pbase64decode(r->pool, auth_line);
+    if (!credentials) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "Invalid Base64 in Authorization header");
+        return HTTP_BAD_REQUEST;
+    }
+    
+    /* Split username:password */
+    user = ap_getword(r->pool, &credentials, ':');
+    password = apr_pstrdup(r->pool, credentials);
+    
+    if (!user || !*user) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "Empty username in credentials");
+        return HTTP_UNAUTHORIZED;
+    }
+    
+    /* Store username in request */
+    r->user = user;
+    
+    /* Verify password against database/file */
+    res = check_password(r, user, password);
+    
+    /* Clear password from memory (security best practice) */
+    memset(password, 0, strlen(password));
+    
+    if (res != OK) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                     "Authentication failed for user %s", user);
+        ap_note_auth_failure(r);
+        return HTTP_UNAUTHORIZED;
+    }
+    
+    /* Success */
+    return OK;
+}
+```
+
+---
+
+## 16. Source Code Navigation Guide {#code-navigation}
+
+### 16.1 Key Files and Their Purpose
+
+**Description:** Understanding the codebase structure helps you navigate and find what you need.
+
+**Core Server Files:**
+```
+server/
+├── main.c                    # Entry point, server startup and initialization
+├── config.c                  # Configuration file parsing and processing
+├── vhost.c                   # Virtual host matching and selection
+├── request.c                 # Request processing pipeline orchestration
+├── protocol.c                # HTTP protocol implementation (headers, etc)
+├── connection.c              # Connection lifecycle management
+├── log.c                     # Logging functions and error handling
+├── util.c                    # Utility functions (string, date, etc)
+├── util_filter.c             # Filter chain management
+├── util_script.c             # CGI script execution helpers
+├── scoreboard.c              # Inter-process communication and stats
+├── mpm/                      # Multi-Processing Modules
+│   ├── prefork/              # Prefork MPM (process-based)
+│   │   └── prefork.c
+│   ├── worker/               # Worker MPM (hybrid)
+│   │   └── worker.c
+│   └── event/                # Event MPM (async I/O)
+│       └── event.c
+└── core.c                    # Core module with essential directives
+
+include/
+├── httpd.h                   # Main server definitions and structures
+├── http_config.h             # Configuration structures and module API
+├── http_request.h            # Request processing functions
+├── http_protocol.h           # HTTP protocol functions
+├── http_log.h                # Logging macros and functions
+├── ap_config.h               # Build-time configuration
+└── util_filter.h             # Filter API definitions
+
+modules/
+├── http/                     # HTTP protocol modules
+│   ├── mod_mime.c           # MIME type handling
+│   ├── http_core.c          # HTTP core directives
+│   └── mod_mime_magic.c     # MIME type detection
+├── filters/                  # Filter modules
+│   ├── mod_deflate.c        # Compression (gzip)
+│   ├── mod_headers.c        # Header manipulation
+│   └── mod_ext_filter.c     # External filter programs
+├── generators/               # Content generators
+│   ├── mod_cgi.c            # CGI execution
+│   ├── mod_autoindex.c      # Directory listing
+│   └── mod_status.c         # Server status page
+├── aaa/                      # Authentication/Authorization
+│   ├── mod_auth_basic.c     # Basic authentication
+│   ├── mod_auth_digest.c    # Digest authentication
+│   └── mod_authz_core.c     # Authorization framework
+├── cache/                    # Caching modules
+│   ├── mod_cache.c          # Cache framework
+│   └── mod_cache_disk.c     # Disk-based cache
+├── ssl/                      # SSL/TLS module
+│   └── mod_ssl.c            # SSL implementation
+└── proxy/                    # Proxy modules
+    ├── mod_proxy.c          # Proxy framework
+    ├── mod_proxy_http.c     # HTTP proxy
+    └── mod_proxy_balancer.c # Load balancer
+```
+
+### 16.2 Code Reading Roadmap
+
+**Description:** Follow this path to systematically learn the Apache codebase.
+
+**Beginner Path (1-2 weeks):**
+1. **`include/httpd.h`** - Understand basic structures (request_rec, server_rec, conn_rec)
+2. **`server/util.c`** - Study utility functions for string/date handling
+3. **APR documentation** - Learn memory pools and APR data structures
+4. **`server/log.c`** - Understand logging system
+5. **`modules/generators/mod_autoindex.c`** - Simple complete module example
+
+**Intermediate Path (3-4 weeks):**
+1. **`server/main.c`** - Server startup sequence and initialization
+2. **`server/config.c`** - Configuration file parsing
+3. **`server/connection.c`** - Connection lifecycle and management
+4. **`server/protocol.c`** - HTTP protocol implementation
+5. **`server/request.c`** - Request processing pipeline
+6. **`modules/http/http_core.c`** - Core HTTP directives
+7. **`server/util_filter.c`** - Filter chain architecture
+
+**Advanced Path (1-2 months):**
+1. **`server/mpm/event/event.c`** - Event-driven async I/O architecture
+2. **`modules/ssl/ssl_engine_*.c`** - SSL/TLS implementation
+3. **`modules/proxy/mod_proxy.c`** - Reverse proxy implementation
+4. **`modules/cache/mod_cache.c`** - Caching system
+5. **`server/scoreboard.c`** - Inter-process communication
+6. **`modules/filters/mod_deflate.c`** - Compression filter
+
+### 16.3 Debugging Tips
+
+**Enable Debug Logging:**
+```apache
+# httpd.conf
+# Enable maximum verbosity for debugging
+LogLevel trace8
+ErrorLog logs/error_log
+
+# Module-specific debug levels
+LogLevel core:trace8
+LogLevel mpm_event:trace8
+LogLevel http:trace8
+LogLevel ssl:trace4
+```
+
+**GDB Debugging:**
+```bash
+# 1. Compile with debug symbols
+./configure --enable-maintainer-mode --enable-debugger-mode \
+            --with-mpm=event
+make clean
+make
+
+# 2. Start GDB
+gdb /usr/local/apache2/bin/httpd
+
+# 3. Set breakpoints
+(gdb) break ap_process_request         # Request processing
+(gdb) break ap_invoke_handler          # Handler execution
+(gdb) break ap_http_filter             # Filter processing
+(gdb) break ap_run_translate_name      # URI translation
+
+# 4. Run in single-process mode (important!)
+(gdb) run -X -f /path/to/httpd.conf
+
+# 5. When breakpoint hits, examine state
+(gdb) bt                    # Backtrace (call stack)
+(gdb) print *r              # Print request structure
+(gdb) print r->uri          # Print specific field
+(gdb) print r->status       # Print status code
+(gdb) watch r->status       # Watch for status changes
+(gdb) continue              # Continue execution
+
+# 6. Examine data structures
+(gdb) ptype request_rec     # Show structure definition
+(gdb) print/x r->pool       # Print in hexadecimal
+```
+
+**Valgrind for Memory Leaks:**
+```bash
+# Check for memory leaks and errors
+valgrind --leak-check=full \
+         --show-leak-kinds=all \
+         --track-origins=yes \
+         --verbose \
+         --log-file=valgrind.log \
+         httpd -X
+```
+
+---
+
+## 17. Practical Examples {#practical-examples}
+
+### 17.1 Complete Custom Module
+
+**Description:** This example shows a complete module with configuration, hooks, and request handling.
+
+**Custom Module Template:**
+```c
+/* modules/examples/mod_example.c */
+
+#include "httpd.h"
+#include "http_config.h"
+#include "http_protocol.h"
+#include "http_log.h"
+#include "ap_config.h"
+
+/* Module configuration structure */
+typedef struct {
+    int enabled;              /* Enable/disable module */
+    const char *message;      /* Custom message */
+    int max_requests;         /* Request limit */
+} example_config;
+
+/* Create per-directory config */
+static void *create_example_dir_config(apr_pool_t *p, char *dir)
+{
+    example_config *cfg = apr_pcalloc(p, sizeof(example_config));
+    cfg->enabled = 0;
+    cfg->message = "Hello from Apache!";
+    cfg->max_requests = 1000;
+    return cfg;
+}
+
+/* Merge directory configs (child inherits/overrides parent) */
+static void *merge_example_dir_config(apr_pool_t *p,
+                                     void *basev,
+                                     void *newv)
+{
+    example_config *base = (example_config *)basev;
+    example_config *new = (example_config *)newv;
+    example_config *merged = apr_pcalloc(p, sizeof(example_config));
+    
+    /* Use new value if set, otherwise inherit from parent */
+    merged->enabled = new->enabled ? new->enabled : base->enabled;
+    merged->message = new->message ? new->message : base->message;
+    merged->max_requests = new->max_requests ? new->max_requests : base->max_requests;
+    
+    return merged;
+}
+
+/* Configuration directive handlers */
+static const char *set_example_enabled(cmd_parms *cmd,
+                                       void *cfg,
+                                       int flag)
+{
+    example_config *conf = (example_config *)cfg;
+    conf->enabled = flag;
+    return NULL;
+}
+
+static const char *set_example_message(cmd_parms *cmd,
+                                      void *cfg,
+                                      const char *arg)
+{
+    example_config *conf = (example_config *)cfg;
+    conf->message = apr_pstrdup(cmd->pool, arg);
+    return NULL;
+}
+
+static const char *set_max_requests(cmd_parms *cmd,
+                                   void *cfg,
+                                   const char *arg)
+{
+    example_config *conf = (example_config *)cfg;
+    conf->max_requests = atoi(arg);
+    
+    if (conf->max_requests < 1) {
+        return "MaxRequests must be positive";
+    }
+    
+    return NULL;
+}
+
+/* Request handler */
+static int example_handler(request_rec *r)
+{
+    example_config *cfg;
+    
+    /* Only handle requests explicitly set to use this handler */
+    if (!r->handler || strcmp(r->handler, "example-handler") != 0) {
+        return DECLINED;
+    }
+    
+    /* Get configuration for this location */
+    cfg = ap_get_module_config(r->per_dir_config, &example_module);
+    
+    /* Check if enabled */
+    if (!cfg->enabled) {
+        return DECLINED;
+    }
+    
+    /* Set content type */
+    ap_set_content_type(r, "text/html; charset=utf-8");
+    
+    /* Send HTTP response */
+    ap_rputs("<!DOCTYPE html>\n", r);
+    ap_rputs("<html>\n<head>\n", r);
+    ap_rputs("<title>Example Module</title>\n", r);
+    ap_rputs("</head>\n<body>\n", r);
+    
+    /* Send configured message (escape HTML!) */
+    ap_rprintf(r, "<h1>%s</h1>\n", ap_escape_html(r->pool, cfg->message));
+    
+    /* Display request information */
+    ap_rputs("<h2>Request Details</h2>\n", r);
+    ap_rprintf(r, "<p><b>Method:</b> %s</p>\n", r->method);
+    ap_rprintf(r, "<p><b>URI:</b> %s</p>\n", ap_escape_html(r->pool, r->uri));
+    ap_rprintf(r, "<p><b>Query:</b> %s</p>\n",
+              ap_escape_html(r->pool, r->args ? r->args : "(none)"));
+    ap_rprintf(r, "<p><b>Client IP:</b> %s</p>\n",
+              r->useragent_ip ? r->useragent_ip : "unknown");
+    
+    /* Display request headers */
+    ap_rputs("<h2>Request Headers</h2>\n<ul>\n", r);
+    const apr_array_header_t *headers = apr_table_elts(r->headers_in);
+    const apr_table_entry_t *e = (const apr_table_entry_t *)headers->elts;
+    
+    for (int i = 0; i < headers->nelts; i++) {
+        ap_rprintf(r, "<li><b>%s:</b> %s</li>\n",
+                  ap_escape_html(r->pool, e[i].key),
+                  ap_escape_html(r->pool, e[i].val));
+    }
+    
+    ap_rputs("</ul>\n", r);
+    ap_rputs("</body>\n</html>\n", r);
+    
+    /* Log request */
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                 "Example handler processed request for %s from %s",
+                 r->uri, r->useragent_ip);
+    
+    return OK;
+}
+
+/* Register configuration directives */
+static const command_rec example_cmds[] = {
+    AP_INIT_FLAG("ExampleEnabled", set_example_enabled, NULL, OR_ALL,
+                 "Enable or disable example module"),
+    AP_INIT_TAKE1("ExampleMessage", set_example_message, NULL, OR_ALL,
+                  "Set custom message to display"),
+    AP_INIT_TAKE1("ExampleMaxRequests", set_max_requests, NULL, OR_ALL,
+                  "Maximum requests to process"),
+    { NULL }  /* Terminator */
+};
+
+/* Register hooks */
+static void register_hooks(apr_pool_t *p)
+{
+    /* Register handler hook */
+    ap_hook_handler(example_handler, NULL, NULL, APR_HOOK_MIDDLE);
+}
+
+/* Module declaration */
+module AP_MODULE_DECLARE_DATA example_module = {
+    STANDARD20_MODULE_STUFF,
+    create_example_dir_config,  /* Per-directory config creator */
+    merge_example_dir_config,   /* Per-directory config merger */
+    NULL,                       /* Per-server config creator */
+    NULL,                       /* Per-server config merger */
+    example_cmds,               /* Configuration directives */
+    register_hooks              /* Hook registration */
+};
+```
+
+**Build and Install:**
+```bash
+# Compile module
+apxs -c mod_example.c
+
+# Install module
+apxs -i -a mod_example.la
+
+# Configure in httpd.conf
+<Location "/example">
+    SetHandler example-handler
+    ExampleEnabled On
+    ExampleMessage "Welcome to My Server"
+    ExampleMaxRequests 5000
+</Location>
+
+# Restart Apache
+apachectl restart
+
+# Test
+curl http://localhost/example
+```
+
+### 17.2 Rate Limiting Module
+
+**Description:** Prevents abuse by limiting requests per IP address.
+
+**Rate Limiter Implementation:**
+```c
+/* modules/examples/mod_ratelimit.c */
+
+#include "httpd.h"
+#include "http_config.h"
+#include "http_request.h"
+#include "http_log.h"
+#include "apr_hash.h"
+#include "apr_time.h"
+#include "apr_thread_mutex.h"
+
+/* Client tracking structure */
+typedef struct {
+    apr_time_t first_request;     /* Time of first request in window */
+    int request_count;            /* Number of requests in window */
+} client_info_t;
+
+/* Module configuration */
+typedef struct {
+    apr_hash_t *clients;          /* IP -> client_info */
+    apr_thread_mutex_t *mutex;    /* Thread safety */
+    apr_pool_t *pool;             /* Memory pool */
+    int max_requests;             /* Max requests per window */
+    apr_time_t time_window;       /* Time window duration */
+} ratelimit_config;
+
+/* Create server config */
+static void *create_server_config(apr_pool_t *p, server_rec *s)
+{
+    ratelimit_config *cfg = apr_pcalloc(p, sizeof(ratelimit_config));
+    
+    cfg->pool = p;
+    cfg->clients = apr_hash_make(p);
+    apr_thread_mutex_create(&cfg->mutex, APR_THREAD_MUTEX_DEFAULT, p);
+    
+    /* Default: 100 requests per 60 seconds */
+    cfg->max_requests = 100;
+    cfg->time_window = apr_time_from_sec(60);
+    
+    return cfg;
+}
+
+/* Check rate limit */
+static int check_ratelimit(request_rec *r)
+{
+    ratelimit_config *cfg = ap_get_module_config(r->server->module_config,
+                                                  &ratelimit_module);
+    const char *client_ip = r->useragent_ip;
+    client_info_t *info;
+    apr_time_t now = apr_time_now();
+    int allowed = 1;
+    
+    if (!client_ip) {
+        return DECLINED;
+    }
+    
+    /* Lock for thread safety */
+    apr_thread_mutex_lock(cfg->mutex);
+    
+    /* Look up client */
+    info = apr_hash_get(cfg->clients, client_ip, APR_HASH_KEY_STRING);
+    
+    if (!info) {
+        /* New client - create tracking record */
+        info = apr_pcalloc(cfg->pool, sizeof(client_info_t));
+        info->first_request = now;
+        info->request_count = 1;
+        apr_hash_set(cfg->clients, apr_pstrdup(cfg->pool, client_ip),
+                    APR_HASH_KEY_STRING, info);
+    }
+    else {
+        /* Existing client - check window */
+        if ((now - info->first_request) > cfg->time_window) {
+            /* Window expired - reset counter */
+            info->first_request = now;
+            info->request_count = 1;
+        }
+        else {
+            /* Within window - increment counter */
+            info->request_count++;
+            
+            /* Check if limit exceeded */
+            if (info->request_count > cfg->max_requests) {
+                allowed = 0;
+            }
+        }
+    }
+    
+    apr_thread_mutex_unlock(cfg->mutex);
+    
+    if (!allowed) {
+        /* Rate limit exceeded */
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                     "Rate limit exceeded for IP: %s (%d requests)",
+                     client_ip, info->request_count);
+        
+        /* Calculate retry-after time */
+        apr_time_t retry_after = (info->first_request + cfg->time_window - now);
+        apr_table_setn(r->headers_out, "Retry-After",
+                      apr_psprintf(r->pool, "%" APR_TIME_T_FMT,
+                                  apr_time_sec(retry_after)));
+        
+        return HTTP_SERVICE_UNAVAILABLE;  /* 503 */
+    }
+    
+    return DECLINED;
+}
+
+/* Configuration directives */
+static const char *set_max_requests(cmd_parms *cmd, void *dummy,
+                                    const char *arg)
+{
+    ratelimit_config *cfg = ap_get_module_config(cmd->server->module_config,
+                                                  &ratelimit_module);
+    cfg->max_requests = atoi(arg);
+    
+    if (cfg->max_requests < 1) {
+        return "RateLimitRequests must be positive";
+    }
+    
+    return NULL;
+}
+
+static const char *set_time_window(cmd_parms *cmd, void *dummy,
+                                   const char *arg)
+{
+    ratelimit_config *cfg = ap_get_module_config(cmd->server->module_config,
+                                                  &ratelimit_module);
+    cfg->time_window = apr_time_from_sec(atoi(arg));
+    return NULL;
+}
+
+static const command_rec ratelimit_cmds[] = {
+    AP_INIT_TAKE1("RateLimitRequests", set_max_requests, NULL, RSRC_CONF,
+                  "Maximum requests per time window"),
+    AP_INIT_TAKE1("RateLimitWindow", set_time_window, NULL, RSRC_CONF,
+                  "Time window in seconds"),
+    { NULL }
+};
+
+static void register_hooks(apr_pool_t *p)
+{
+    /* Run early in request processing (before authentication) */
+    ap_hook_access_checker(check_ratelimit, NULL, NULL, APR_HOOK_FIRST);
+}
+
+module AP_MODULE_DECLARE_DATA ratelimit_module = {
+    STANDARD20_MODULE_STUFF,
+    NULL,                    /* Per-directory config */
+    NULL,                    /* Per-directory merger */
+    create_server_config,    /* Per-server config */
+    NULL,                    /* Per-server merger */
+    ratelimit_cmds,          /* Configuration directives */
+    register_hooks           /* Hook registration */
+};
+```
+
+**Usage:**
+```apache
+# httpd.conf
+LoadModule ratelimit_module modules/mod_ratelimit.so
+
+# Allow 100 requests per client per 60 seconds
+RateLimitRequests 100
+RateLimitWindow 60
 ```
 
 ---
