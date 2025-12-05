@@ -2048,3 +2048,496 @@ fs.copyFile('source.txt', 'destination.txt', (error) => {
 });
 ```
 
+**Directory Operations**
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+// Create directory
+fs.mkdir('new-folder', (error) => {
+    if (error) {
+        console.error("Error creating directory:", error.message);
+        return;
+    }
+    console.log("Directory created");
+});
+
+// Create nested directories
+fs.mkdir('parent/child/grandchild', { recursive: true }, (error) => {
+    if (error) {
+        console.error("Error:", error.message);
+        return;
+    }
+    console.log("Nested directories created");
+});
+
+// Read directory contents
+fs.readdir('./', (error, files) => {
+    if (error) {
+        console.error("Error:", error.message);
+        return;
+    }
+    
+    console.log("Files in current directory:");
+    files.forEach(file => {
+        console.log(file);
+    });
+});
+
+// Read directory with file types
+fs.readdir('./', { withFileTypes: true }, (error, entries) => {
+    if (error) {
+        console.error("Error:", error.message);
+        return;
+    }
+    
+    entries.forEach(entry => {
+        if (entry.isFile()) {
+            console.log("File:", entry.name);
+        } else if (entry.isDirectory()) {
+            console.log("Directory:", entry.name);
+        }
+    });
+});
+
+// Remove directory (must be empty)
+fs.rmdir('old-folder', (error) => {
+    if (error) {
+        console.error("Error:", error.message);
+        return;
+    }
+    console.log("Directory removed");
+});
+
+// Remove directory recursively (with contents)
+fs.rm('folder-with-files', { recursive: true, force: true }, (error) => {
+    if (error) {
+        console.error("Error:", error.message);
+        return;
+    }
+    console.log("Directory and contents removed");
+});
+```
+
+**Promises API (fs/promises)**
+
+```javascript
+const fs = require('fs/promises');
+
+// Read file with promises
+fs.readFile('file.txt', 'utf8')
+    .then(data => {
+        console.log("File contents:", data);
+    })
+    .catch(error => {
+        console.error("Error:", error.message);
+    });
+
+// Using async/await
+async function fileOperations() {
+    try {
+        const data = await fs.readFile('input.txt', 'utf8');
+        console.log("Read:", data);
+        
+        await fs.writeFile('output.txt', data.toUpperCase());
+        console.log("Written successfully");
+        
+        const stats = await fs.stat('output.txt');
+        console.log("File size:", stats.size, "bytes");
+        
+        const files = await fs.readdir('./');
+        console.log("Files:", files);
+        
+    } catch (error) {
+        console.error("Error:", error.message);
+    }
+}
+
+fileOperations();
+```
+
+#### Path Module
+
+```javascript
+const path = require('path');
+
+// Join paths
+const fullPath = path.join('folder', 'subfolder', 'file.txt');
+console.log(fullPath);  // folder/subfolder/file.txt
+
+// Resolve absolute path
+const absolutePath = path.resolve('folder', 'file.txt');
+console.log(absolutePath);  // /full/path/to/folder/file.txt
+
+// Get directory name
+const dirname = path.dirname('/path/to/file.txt');
+console.log(dirname);  // /path/to
+
+// Get file name
+const basename = path.basename('/path/to/file.txt');
+console.log(basename);  // file.txt
+
+// Get file extension
+const extname = path.extname('/path/to/file.txt');
+console.log(extname);  // .txt
+
+// Parse path
+const parsed = path.parse('/path/to/file.txt');
+console.log(parsed);
+// {
+//   root: '/',
+//   dir: '/path/to',
+//   base: 'file.txt',
+//   ext: '.txt',
+//   name: 'file'
+// }
+
+// Normalize path
+const normalized = path.normalize('/path//to/../file.txt');
+console.log(normalized);  // /path/file.txt
+```
+
+#### OS Module
+
+```javascript
+const os = require('os');
+
+// Platform information
+console.log("Platform:", os.platform());     // 'linux', 'darwin', 'win32'
+console.log("Architecture:", os.arch());     // 'x64', 'arm'
+console.log("CPU cores:", os.cpus().length);
+
+// Memory information
+const totalMem = os.totalmem();
+const freeMem = os.freemem();
+
+console.log("Total memory:", (totalMem / 1024 / 1024 / 1024).toFixed(2), "GB");
+console.log("Free memory:", (freeMem / 1024 / 1024 / 1024).toFixed(2), "GB");
+
+// User information
+console.log("Username:", os.userInfo().username);
+console.log("Home directory:", os.homedir());
+console.log("Hostname:", os.hostname());
+
+// System uptime
+console.log("System uptime:", os.uptime(), "seconds");
+
+// Temporary directory
+console.log("Temp directory:", os.tmpdir());
+```
+
+---
+
+## Phase 3: Asynchronous Programming
+
+### Module 3.1: Callbacks
+
+#### Understanding Callbacks
+
+**Description:** Callbacks are functions passed as arguments to other functions, executed after an operation completes.
+
+```javascript
+// Simple callback example
+function greet(name, callback) {
+    console.log("Hello, " + name);
+    callback();
+}
+
+function sayGoodbye() {
+    console.log("Goodbye!");
+}
+
+greet("Alice", sayGoodbye);
+// Output: Hello, Alice
+//         Goodbye!
+
+// Error-first callbacks (Node.js convention)
+function divide(a, b, callback) {
+    if (b === 0) {
+        callback(new Error("Division by zero"), null);
+    } else {
+        callback(null, a / b);
+    }
+}
+
+divide(10, 2, (error, result) => {
+    if (error) {
+        console.error("Error:", error.message);
+    } else {
+        console.log("Result:", result);  // Output: Result: 5
+    }
+});
+```
+
+**Callback Hell (Pyramid of Doom):**
+
+```javascript
+const fs = require('fs');
+
+// Callback hell - hard to read and maintain
+fs.readFile('file1.txt', 'utf8', (err1, data1) => {
+    if (err1) return console.error(err1);
+    
+    fs.readFile('file2.txt', 'utf8', (err2, data2) => {
+        if (err2) return console.error(err2);
+        
+        fs.readFile('file3.txt', 'utf8', (err3, data3) => {
+            if (err3) return console.error(err3);
+            
+            const combined = data1 + data2 + data3;
+            
+            fs.writeFile('output.txt', combined, (err4) => {
+                if (err4) return console.error(err4);
+                console.log("Files combined successfully");
+            });
+        });
+    });
+});
+```
+
+### Module 3.2: Promises
+
+#### Promise Basics
+
+**Description:** Promises represent the eventual completion (or failure) of an asynchronous operation.
+
+```javascript
+// Creating a promise
+const myPromise = new Promise((resolve, reject) => {
+    const success = true;
+    
+    setTimeout(() => {
+        if (success) {
+            resolve("Operation successful!");
+        } else {
+            reject("Operation failed!");
+        }
+    }, 1000);
+});
+
+// Consuming a promise
+myPromise
+    .then(result => {
+        console.log(result);  // Output: Operation successful!
+    })
+    .catch(error => {
+        console.error(error);
+    })
+    .finally(() => {
+        console.log("Promise settled");
+    });
+
+// Practical example
+function fetchUser(userId) {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (userId > 0) {
+                resolve({ id: userId, name: "John Doe" });
+            } else {
+                reject(new Error("Invalid user ID"));
+            }
+        }, 1000);
+    });
+}
+
+fetchUser(1)
+    .then(user => {
+        console.log("User:", user);
+        return user.id;
+    })
+    .then(userId => {
+        console.log("User ID:", userId);
+    })
+    .catch(error => {
+        console.error("Error:", error.message);
+    });
+```
+
+#### Promise Static Methods
+
+```javascript
+// Promise.all() - Wait for all promises
+const promise1 = Promise.resolve(3);
+const promise2 = new Promise(resolve => setTimeout(() => resolve(5), 1000));
+const promise3 = Promise.resolve(7);
+
+Promise.all([promise1, promise2, promise3])
+    .then(results => {
+        console.log(results);  // Output: [3, 5, 7]
+        const sum = results.reduce((a, b) => a + b);
+        console.log("Sum:", sum);  // Output: Sum: 15
+    })
+    .catch(error => {
+        console.error("One promise failed:", error);
+    });
+
+// Promise.race() - First to settle wins
+Promise.race([
+    new Promise(resolve => setTimeout(() => resolve('Slow'), 2000)),
+    new Promise(resolve => setTimeout(() => resolve('Fast'), 500))
+])
+    .then(result => {
+        console.log(result);  // Output: Fast
+    });
+```
+
+### Module 3.3: Async/Await
+
+#### Async/Await Basics
+
+**Description:** Async/await provides syntactic sugar for promises, making asynchronous code look synchronous.
+
+```javascript
+// Async function returns a promise
+async function greet() {
+    return "Hello, World!";
+}
+
+greet().then(message => console.log(message));
+
+// Await waits for promise to resolve
+async function fetchData() {
+    const promise = new Promise(resolve => {
+        setTimeout(() => resolve("Data loaded"), 1000);
+    });
+    
+    console.log("Fetching data...");
+    const result = await promise;
+    console.log(result);
+    return result;
+}
+
+fetchData();
+
+// Error handling with try-catch
+async function processFiles() {
+    const fs = require('fs/promises');
+    
+    try {
+        const file1 = await fs.readFile('file1.txt', 'utf8');
+        const file2 = await fs.readFile('file2.txt', 'utf8');
+        const file3 = await fs.readFile('file3.txt', 'utf8');
+        
+        const combined = file1 + file2 + file3;
+        await fs.writeFile('output.txt', combined);
+        
+        console.log("Files combined successfully");
+    } catch (error) {
+        console.error("Error:", error.message);
+    }
+}
+
+processFiles();
+
+// Parallel execution
+async function readFilesParallel() {
+    const fs = require('fs/promises');
+    
+    const [file1, file2, file3] = await Promise.all([
+        fs.readFile('file1.txt', 'utf8'),
+        fs.readFile('file2.txt', 'utf8'),
+        fs.readFile('file3.txt', 'utf8')
+    ]);
+    
+    return [file1, file2, file3];
+}
+```
+
+---
+
+**[Tutorial continues with Express.js, Databases, Authentication, Testing, Advanced Topics, and Production Deployment in following phases...]**
+
+---
+
+## Conclusion
+
+This Node.js Mastery Tutorial covers:
+
+**Phase 1 - JavaScript Essentials:**
+- ✅ Variables, data types, operators
+- ✅ Control flow (if, switch, loops)
+- ✅ Functions, scope, closures
+- ✅ Objects and arrays
+- ✅ Modern JavaScript (ES6+)
+- ✅ Classes and OOP
+
+**Phase 2 - Node.js Fundamentals:**
+- ✅ Node.js basics and global objects
+- ✅ CommonJS and ES modules
+- ✅ File system operations
+- ✅ Path and OS modules
+
+**Phase 3 - Asynchronous Programming:**
+- ✅ Callbacks and callback hell
+- ✅ Promises and promise chaining
+- ✅ Async/await patterns
+- ✅ Error handling
+
+**Next Steps:**
+
+To complete your Node.js ninja journey, continue with:
+
+**Phase 4 - Express.js:**
+- Building web servers
+- Routing and middleware
+- REST API development
+- Template engines
+
+**Phase 5 - Database Integration:**
+- MongoDB with Mongoose
+- PostgreSQL with Sequelize
+- CRUD operations
+- Data validation
+
+**Phase 6 - Authentication & Security:**
+- JWT authentication
+- Password hashing
+- OAuth integration
+- Security best practices
+
+**Phase 7 - Testing:**
+- Unit testing with Jest
+- Integration testing
+- API testing with Supertest
+- Test-driven development
+
+**Phase 8 - Advanced Topics:**
+- Streams and buffers
+- Worker threads
+- Clustering
+- WebSockets
+- GraphQL
+- Microservices
+
+**Phase 9 - Production & Deployment:**
+- Environment configuration
+- Logging and monitoring
+- Docker containerization
+- CI/CD pipelines
+- Cloud deployment
+
+**Practice Projects:**
+1. RESTful API with authentication
+2. Real-time chat application
+3. E-commerce backend
+4. Blog platform
+5. Task management system
+
+**Resources:**
+- Official Node.js documentation
+- MDN JavaScript guide
+- Express.js documentation
+- MongoDB University
+- Node.js design patterns
+
+Happy coding! 🚀
+
+---
+
+**End of Node.js Mastery Tutorial - Basic to Intermediate**
+
+*Version: 1.0*  
+*Last Updated: December 2025*  
+*License: MIT*
+
