@@ -3,7 +3,7 @@
 > **A comprehensive collection of technical tutorials covering everything from beginner to advanced level - Your complete roadmap to becoming a ninja developer!**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tutorials](https://img.shields.io/badge/Tutorials-36-blue.svg)](https://github.com/gautamrampal/ninja)
+[![Tutorials](https://img.shields.io/badge/Tutorials-42-blue.svg)](https://github.com/gautamrampal/ninja)
 [![Level](https://img.shields.io/badge/Level-Beginner%20to%20Advanced-green.svg)](https://github.com/gautamrampal/ninja)
 
 ---
@@ -20,18 +20,24 @@
 - [Data Structures & Algorithms](#data-structures--algorithms)
 - [Backend Development](#backend-development)
   - [Node.js](#nodejs)
+  - [Bun](#bun)
   - [Express.js](#expressjs)
 - [Databases](#databases)
   - [MongoDB](#mongodb)
   - [PostgreSQL](#postgresql)
   - [Redis](#redis)
   - [SQLite](#sqlite)
+  - [Prisma ORM](#prisma-orm)
 - [System Programming](#system-programming)
   - [Linux Commands](#linux-commands)
+  - [Bash Scripting](#bash-scripting)
   - [Linux Kernel](#linux-kernel)
 - [Web Servers & Infrastructure](#web-servers--infrastructure)
   - [Apache HTTP Server](#apache-http-server)
   - [Ubuntu Server Security](#ubuntu-server-security)
+- [DevOps & Tools](#devops--tools)
+  - [cURL](#curl)
+  - [DevOps Fundamentals](#devops-fundamentals)
 - [How to Use](#how-to-use)
 - [Contributing](#contributing)
 - [License](#license)
@@ -40,7 +46,7 @@
 
 ## 🎯 Overview
 
-This repository contains **36 comprehensive tutorials** covering a wide range of programming topics, from basic syntax to advanced system programming. Each tutorial is designed with:
+This repository contains **42 comprehensive tutorials** covering a wide range of programming topics, from basic syntax to advanced system programming. Each tutorial is designed with:
 
 - ✅ **Progressive Learning** - From beginner to advanced
 - ✅ **Detailed Explanations** - Every concept explained thoroughly
@@ -48,7 +54,7 @@ This repository contains **36 comprehensive tutorials** covering a wide range of
 - ✅ **Real-world Examples** - Practical, production-ready code
 - ✅ **Best Practices** - Industry-standard patterns and conventions
 
-**Total Content:** Over **1.8 million words** of comprehensive technical documentation!
+**Total Content:** Over **2.0 million words** of comprehensive technical documentation!
 
 ---
 
@@ -193,6 +199,25 @@ Complete Node.js mastery from basics to production deployment.
 | [Node_JS_Mastery_Tutorial.md](./Node_JS_Mastery_Tutorial.md) | **Complete Node.js Guide** - All 9 Phases from Beginner to Ninja | 111 KB | Beginner → Advanced |
 | [node-js-mastery-tutorial.md](./node-js-mastery-tutorial.md) | Node.js fundamentals | 39 KB | Beginner → Intermediate |
 
+---
+
+### Bun
+
+Modern JavaScript runtime built for speed.
+
+| Tutorial | Description | Size | Level |
+|----------|-------------|------|-------|
+| [Bun_Complete_Mastery_Tutorial.md](./Bun_Complete_Mastery_Tutorial.md) | Complete Bun runtime guide - Installation, APIs, package management, testing | 85 KB | Beginner → Advanced |
+
+**Topics Covered:**
+- Bun Installation and Setup
+- Bun APIs and Runtime Features
+- Package Management with Bun
+- Fast Bundler and Transpiler
+- Built-in Testing Framework
+- Performance Optimization
+- Compatibility with Node.js
+
 **Complete 9-Phase Curriculum:**
 
 **Phase 1: JavaScript Essentials**
@@ -329,6 +354,26 @@ Lightweight embedded database system.
 
 ---
 
+### Prisma ORM
+
+Next-generation ORM for Node.js and TypeScript.
+
+| Tutorial | Description | Size | Level |
+|----------|-------------|------|-------|
+| [Prisma_Complete_Mastery_Tutorial.md](./Prisma_Complete_Mastery_Tutorial.md) | Complete Prisma ORM guide - Schema design, migrations, queries, relations | 95 KB | Beginner → Advanced |
+
+**Topics Covered:**
+- Prisma Schema Language
+- Database Migrations
+- Prisma Client CRUD Operations
+- Relations and Nested Queries
+- Aggregations and Grouping
+- Transactions and Batch Operations
+- Performance Optimization
+- Multi-database Support
+
+---
+
 ## 🐧 System Programming
 
 ### Linux Commands
@@ -350,6 +395,28 @@ Master Linux command line from basics to advanced system administration.
 - Shell Scripting
 - Package Management
 - Network Commands
+
+---
+
+### Bash Scripting
+
+Master Bash scripting from basics to advanced automation.
+
+| Tutorial | Description | Size | Level |
+|----------|-------------|------|-------|
+| [Bash_Complete_Mastery_Tutorial.md](./Bash_Complete_Mastery_Tutorial.md) | Complete Bash scripting guide - Variables, loops, functions, automation | 120 KB | Beginner → Advanced |
+
+**Topics Covered:**
+- Bash Basics and Syntax
+- Variables and Data Types
+- Control Structures (if, case, loops)
+- Functions and Script Organization
+- String Manipulation
+- File Operations and I/O
+- Process Management
+- Error Handling and Debugging
+- Advanced Scripting Techniques
+- Automation and Task Scheduling
 
 ---
 
@@ -433,6 +500,50 @@ Comprehensive security audit and hardening guide.
 
 ---
 
+## 🛠️ DevOps & Tools
+
+### cURL
+
+Command-line tool for data transfer with URLs.
+
+| Tutorial | Description | Size | Level |
+|----------|-------------|------|-------|
+| [cURL_Complete_Mastery_Tutorial.md](./cURL_Complete_Mastery_Tutorial.md) | Complete cURL mastery - HTTP methods, authentication, advanced techniques | 140 KB | Beginner → Advanced |
+
+**Topics Covered:**
+- HTTP Methods (GET, POST, PUT, DELETE, PATCH)
+- Headers and Authentication (Basic, Bearer, OAuth)
+- Request Data Formats (JSON, Form, Multipart)
+- Response Handling and Status Codes
+- Advanced Options (Timeouts, Retries, Redirects)
+- SSL/TLS Security
+- Parallel Requests and HTTP/2
+- Real-world Use Cases (API Testing, Web Scraping)
+- CI/CD Integration
+
+---
+
+### DevOps Fundamentals
+
+Comprehensive DevOps guides for modern infrastructure.
+
+| Tutorial | Description | Size | Level |
+|----------|-------------|------|-------|
+| [Devops_Basic.md](./Devops_Basic.md) | DevOps fundamentals - CI/CD, containerization, monitoring | 45 KB | Beginner → Intermediate |
+| [Devops_Config.md](./Devops_Config.md) | DevOps configuration management - Infrastructure as Code, automation | 38 KB | Intermediate → Advanced |
+
+**Topics Covered:**
+- DevOps Principles and Culture
+- CI/CD Pipelines
+- Docker and Containerization
+- Kubernetes Orchestration
+- Infrastructure as Code (Terraform, Ansible)
+- Monitoring and Logging
+- Cloud Platforms (AWS, Azure, GCP)
+- Automation and Scripting
+
+---
+
 ## 🎓 How to Use
 
 ### For Beginners
@@ -489,12 +600,13 @@ Master system-level programming:
 |----------|----------------|------------|-------------|
 | **Programming Languages** | 16 | ~600 KB | Beginner → Advanced |
 | **Data Structures & Algorithms** | 1 | 214 KB | Beginner → Advanced |
-| **Backend Development** | 2 | 150 KB | Beginner → Advanced |
-| **Databases** | 9 | ~560 KB | Beginner → Advanced |
-| **System Programming** | 4 | ~206 KB | Intermediate → Advanced |
+| **Backend Development** | 3 | ~235 KB | Beginner → Advanced |
+| **Databases** | 10 | ~655 KB | Beginner → Advanced |
+| **System Programming** | 5 | ~326 KB | Beginner → Advanced |
 | **Web Servers & Infrastructure** | 2 | ~180 KB | Advanced |
+| **DevOps & Tools** | 3 | ~223 KB | Beginner → Advanced |
 | **Source Code Analysis** | 2 | ~238 KB | Advanced |
-| **TOTAL** | **36 Tutorials** | **~1.9 MB** | **All Levels** |
+| **TOTAL** | **42 Tutorials** | **~2.1 MB** | **All Levels** |
 
 ---
 
