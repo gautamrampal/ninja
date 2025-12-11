@@ -3,7 +3,7 @@
 > **A comprehensive collection of technical tutorials covering everything from beginner to advanced level - Your complete roadmap to becoming a ninja developer!**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tutorials](https://img.shields.io/badge/Tutorials-42-blue.svg)](https://github.com/gautamrampal/ninja)
+[![Tutorials](https://img.shields.io/badge/Tutorials-46-blue.svg)](https://github.com/gautamrampal/ninja)
 [![Level](https://img.shields.io/badge/Level-Beginner%20to%20Advanced-green.svg)](https://github.com/gautamrampal/ninja)
 
 ---
@@ -33,6 +33,7 @@
   - [Bash Scripting](#bash-scripting)
   - [Linux Kernel](#linux-kernel)
 - [Web Servers & Infrastructure](#web-servers--infrastructure)
+  - [Nginx](#nginx)
   - [Apache HTTP Server](#apache-http-server)
   - [Ubuntu Server Security](#ubuntu-server-security)
 - [DevOps & Tools](#devops--tools)
@@ -46,7 +47,7 @@
 
 ## 🎯 Overview
 
-This repository contains **42 comprehensive tutorials** covering a wide range of programming topics, from basic syntax to advanced system programming. Each tutorial is designed with:
+This repository contains **46 comprehensive tutorials** covering a wide range of programming topics, from basic syntax to advanced system programming. Each tutorial is designed with:
 
 - ✅ **Progressive Learning** - From beginner to advanced
 - ✅ **Detailed Explanations** - Every concept explained thoroughly
@@ -441,6 +442,31 @@ Deep dive into Linux kernel internals.
 
 ## 🌐 Web Servers & Infrastructure
 
+### Nginx
+
+Complete Nginx mastery from basics to advanced source code analysis.
+
+| Tutorial | Description | Size | Level |
+|----------|-------------|------|-------|
+| [Nginx_Complete_Mastery_Tutorial_Basic.md](./Nginx_Complete_Mastery_Tutorial_Basic.md) | Nginx basics - Installation, configuration, virtual hosts | TBD | Beginner |
+| [Nginx_Complete_Mastery_Tutorial_Intermediate.md](./Nginx_Complete_Mastery_Tutorial_Intermediate.md) | Intermediate Nginx - Load balancing, SSL, caching | TBD | Intermediate |
+| [Nginx_Complete_Mastery_Tutorial_Advanced.md](./Nginx_Complete_Mastery_Tutorial_Advanced.md) | Advanced Nginx - Performance tuning, modules, security | TBD | Advanced |
+| [Nginx_Source_Code_Mastery_Complete_Tutorial.md](./Nginx_Source_Code_Mastery_Complete_Tutorial.md) | Deep dive into Nginx source code and internals | TBD | Advanced |
+
+**Topics Covered:**
+- Nginx Installation and Configuration
+- Virtual Hosts and Server Blocks
+- Reverse Proxy and Load Balancing
+- SSL/TLS Configuration
+- Caching Strategies
+- Performance Optimization
+- Module Development
+- Source Code Architecture
+- Event-Driven Model
+- Memory Management
+
+---
+
 ### Apache HTTP Server
 
 Complete guide to Apache server source code.
@@ -603,10 +629,10 @@ Master system-level programming:
 | **Backend Development** | 3 | ~235 KB | Beginner → Advanced |
 | **Databases** | 10 | ~655 KB | Beginner → Advanced |
 | **System Programming** | 5 | ~326 KB | Beginner → Advanced |
-| **Web Servers & Infrastructure** | 2 | ~180 KB | Advanced |
+| **Web Servers & Infrastructure** | 6 | ~TBD KB | Beginner → Advanced |
 | **DevOps & Tools** | 3 | ~223 KB | Beginner → Advanced |
 | **Source Code Analysis** | 2 | ~238 KB | Advanced |
-| **TOTAL** | **42 Tutorials** | **~2.1 MB** | **All Levels** |
+| **TOTAL** | **46 Tutorials** | **~2.1+ MB** | **All Levels** |
 
 ---
 
